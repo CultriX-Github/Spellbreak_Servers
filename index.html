@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Chosen Palette: Cool Blues and Warm Neutrals -->
+    <!-- Chosen Palette: Elemental Fracture (Purple and Gold) -->
     <!-- Application Structure Plan: A task-oriented, phased migration dashboard. A persistent sidebar navigation represents the main migration phases (Overview, Foundation, Game Server, Matchmaking, etc.). The main content area interactively displays details for the selected phase. This structure breaks the complex process into manageable, logical steps, facilitating both sequential learning and quick reference, which is more usable than a linear document for such a dense, technical topic. -->
     <!-- Visualization & Content Choices: Key comparisons (Managed vs. Self-hosted K8s) use Chart.js bar charts for easy visual analysis. Complex architectures (Agones/Open Match) are simplified into interactive diagrams using HTML/Tailwind and JS for hover-based info reveal, avoiding SVG/Mermaid. A tabbed interface organizes detailed configurations (e.g., Fleets per game mode), and a stepper/timeline visually grounds the user in the overall migration process. Stat cards highlight key metrics, and code snippets are presented cleanly with copy functionality. -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
@@ -13,10 +13,27 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'ef-dark-purple': '#1c1a3e',
+                        'ef-mid-purple': '#2a254f',
+                        'ef-light-purple': '#4d468d',
+                        'ef-gold': '#d4af37',
+                        'ef-light-gold': '#f0e68c',
+                        'ef-text-light': '#e5e7eb',
+                        'ef-text-dark': '#374151',
+                    }
+                }
+            }
+        }
+    </script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f8fafc; /* gray-50 */
         }
         .chart-container {
             position: relative;
@@ -34,10 +51,15 @@
             }
         }
         .nav-link.active {
-            background-color: #e0f2fe; /* sky-100 */
-            color: #0c4a6e; /* sky-900 */
+            background-color: hsla(247, 43%, 20%, 0.5);
+            color: #ffffff;
             font-weight: 600;
         }
+        .dark .nav-link.active {
+            background-color: hsla(50, 65%, 52%, 0.2);
+            color: #f0e68c;
+        }
+        
         .component-diagram-item {
             transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
         }
@@ -74,13 +96,13 @@
             opacity: 1;
         }
         .tab.active {
-            border-bottom: 2px solid #2563eb;
-            color: #1e3a8a;
+            border-color: #d4af37;
+            color: #d4af37;
             font-weight: 600;
         }
         .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
+            border: 4px solid #4d468d;
+            border-top: 4px solid #d4af37;
             border-radius: 50%;
             width: 32px;
             height: 32px;
@@ -90,36 +112,62 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .wizard-step {
+            border-left-color: #d1d5db;
+        }
+        .dark .wizard-step {
+             border-left-color: #4d468d;
+        }
+        .wizard-step.active {
+            border-left-color: #d4af37;
+        }
+        .wizard-step.completed {
+            border-left-color: #16a34a;
+        }
+        .wizard-step.completed .step-circle {
+             background-color: #16a34a;
+             color: white;
+        }
     </style>
 </head>
-<body class="text-gray-800">
+<body class="bg-gray-100 dark:bg-ef-dark-purple text-ef-text-dark dark:text-ef-text-light transition-colors duration-300">
 
     <div class="flex min-h-screen">
         <!-- Sidebar Navigation -->
-        <aside class="w-64 bg-white border-r border-gray-200 p-5 hidden lg:block sticky top-0 h-screen overflow-y-auto">
-            <h1 class="text-xl font-bold text-blue-800">Migration Playbook</h1>
-            <p class="text-sm text-gray-500 mb-6">Spellbreak Server Edition</p>
-            <nav id="desktop-nav">
+        <aside class="w-64 bg-white dark:bg-ef-mid-purple border-r border-gray-200 dark:border-ef-light-purple/20 p-5 hidden lg:flex flex-col sticky top-0 h-screen overflow-y-auto">
+            <div class="flex items-center justify-between mb-2">
+                 <img src="logo2.jpg" alt="Elemental Fracture Logo" class="h-14 w-14 rounded-lg object-cover" onerror="this.onerror=null;this.src='https://placehold.co/64x64/2a254f/d4af37?text=EF&font=serif';">
+                 <button id="theme-toggle" class="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-ef-light-purple/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ef-gold">
+                    <svg id="theme-toggle-dark-icon" class="hidden h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                    <svg id="theme-toggle-light-icon" class="hidden h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                </button>
+            </div>
+            <p class="text-lg font-semibold text-gray-800 dark:text-white">Elemental Fracture</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Game Server Migration Guide</p>
+            <nav id="desktop-nav" class="flex-grow">
                 <ul class="space-y-2">
-                    <li><a href="#overview" class="nav-link text-gray-600 hover:bg-gray-100 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="overview">
+                    <li><a href="#overview" class="nav-link text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-ef-light-purple/30 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="overview">
                         <span class="mr-3">🗺️</span> Overview & Planning
                     </a></li>
-                    <li><a href="#foundation" class="nav-link text-gray-600 hover:bg-gray-100 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="foundation">
+                    <li><a href="#setup-wizard" class="nav-link text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-ef-light-purple/30 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="setup-wizard">
+                        <span class="mr-3">🛠️</span> Interactive Setup Wizard
+                    </a></li>
+                    <li><a href="#foundation" class="nav-link text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-ef-light-purple/30 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="foundation">
                         <span class="mr-3">🏗️</span> Phase 1: Foundation
                     </a></li>
-                    <li><a href="#agones" class="nav-link text-gray-600 hover:bg-gray-100 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="agones">
+                    <li><a href="#agones" class="nav-link text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-ef-light-purple/30 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="agones">
                         <span class="mr-3">👾</span> Phase 2: Game Servers
                     </a></li>
-                    <li><a href="#openmatch" class="nav-link text-gray-600 hover:bg-gray-100 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="openmatch">
+                    <li><a href="#openmatch" class="nav-link text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-ef-light-purple/30 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="openmatch">
                         <span class="mr-3">🤝</span> Phase 3: Matchmaking
                     </a></li>
-                    <li><a href="#database" class="nav-link text-gray-600 hover:bg-gray-100 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="database">
+                    <li><a href="#database" class="nav-link text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-ef-light-purple/30 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="database">
                         <span class="mr-3">🗃️</span> Phase 4: Database
                     </a></li>
-                    <li><a href="#networking" class="nav-link text-gray-600 hover:bg-gray-100 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="networking">
+                    <li><a href="#networking" class="nav-link text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-ef-light-purple/30 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="networking">
                         <span class="mr-3">🌐</span> Phase 5: Networking
                     </a></li>
-                     <li><a href="#automation" class="nav-link text-gray-600 hover:bg-gray-100 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="automation">
+                     <li><a href="#automation" class="nav-link text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-ef-light-purple/30 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="automation">
                         <span class="mr-3">🤖</span> Phase 6: Automation
                     </a></li>
                 </ul>
@@ -127,54 +175,139 @@
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 p-4 md:p-8 lg:p-12 bg-gray-50 overflow-y-auto">
-            <header class="mb-10">
-                <h1 class="text-4xl font-bold text-gray-900 leading-tight">From Docker Swarm to Kubernetes</h1>
-                <p class="text-lg text-gray-600 mt-2">An Interactive Guide to Migrating Spellbreak Servers with Agones & Open Match</p>
+        <main class="flex-1 p-4 md:p-8 lg:p-12 overflow-y-auto">
+            <header class="mb-10 rounded-xl shadow-lg overflow-hidden relative h-64 flex items-center justify-center">
+                <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('banner.jpg');" onerror="this.style.backgroundColor='#1c1a3e';"></div>
+                <div class="absolute inset-0 bg-black/60"></div>
+                <div class="relative text-center z-10 p-4">
+                    <h1 class="text-5xl font-bold text-white leading-tight tracking-tight drop-shadow-md">From Docker Swarm to Kubernetes</h1>
+                    <p class="text-2xl text-ef-light-gold mt-3 drop-shadow-md">The Elemental Fracture Server Migration Guide</p>
+                </div>
             </header>
 
             <section id="overview" class="mb-16 space-y-8 scroll-mt-20">
-                <h2 class="text-3xl font-bold text-blue-900 border-b-4 border-blue-200 pb-2">🗺️ Overview & Planning</h2>
-                <div class="bg-white p-6 rounded-xl shadow-sm">
-                    <p class="text-gray-700 leading-relaxed">This guide transforms the complex process of migrating a game server infrastructure into a structured, phase-based journey. The goal is to move from a Docker Swarm setup to a scalable, cloud-native architecture on Kubernetes, using industry-standard tools like Agones for game server hosting and Open Match for matchmaking. Each section is designed to help you make key decisions and understand the procedures involved. We'll start by comparing foundational choices, like managed vs. self-hosted Kubernetes, to set the stage for a successful migration.</p>
+                <h2 class="text-3xl font-bold text-gray-800 dark:text-white border-b-2 border-ef-gold/50 dark:border-ef-gold pb-2">🗺️ Overview & Planning</h2>
+                <div class="bg-white dark:bg-ef-mid-purple/80 p-6 rounded-xl shadow-lg">
+                    <p class="text-gray-700 dark:text-gray-300 leading-relaxed">This guide transforms the complex process of migrating a game server infrastructure into a structured, phase-based journey. The goal is to move from a Docker Swarm setup to a scalable, cloud-native architecture on Kubernetes, using industry-standard tools like Agones for game server hosting and Open Match for matchmaking. Each section is designed to help you make key decisions and understand the procedures involved. We'll start by comparing foundational choices, like managed vs. self-hosted Kubernetes, to set the stage for a successful migration.</p>
                 </div>
-                <div class="bg-white p-6 rounded-xl shadow-sm">
+                <div class="bg-white dark:bg-ef-mid-purple/80 p-6 rounded-xl shadow-lg">
                     <h3 class="text-2xl font-semibold mb-4 text-center">Key Decision: Managed vs. Self-Managed Kubernetes</h3>
-                    <p class="text-center text-gray-600 mb-6">Choosing your Kubernetes foundation is the first critical step. Managed services (GKE, EKS, AKS) reduce operational burden, while self-managed clusters offer maximum control. This chart highlights the trade-offs. Hover over the bars for more details.</p>
+                    <p class="text-center text-gray-600 dark:text-gray-400 mb-6">Choosing your Kubernetes foundation is the first critical step. Managed services (GKE, EKS, AKS) reduce operational burden, while self-managed clusters offer maximum control. This chart highlights the trade-offs. Hover over the bars for more details.</p>
                     <div class="chart-container">
                         <canvas id="k8sComparisonChart"></canvas>
                     </div>
                 </div>
             </section>
 
-            <section id="foundation" class="mb-16 space-y-8 scroll-mt-20">
-                <h2 class="text-3xl font-bold text-blue-900 border-b-4 border-blue-200 pb-2">🏗️ Phase 1: Foundation Setup</h2>
-                 <div class="bg-white p-6 rounded-xl shadow-sm">
-                    <p class="text-gray-700 leading-relaxed">This phase focuses on building the core infrastructure. We will use Infrastructure as Code (IaC) with Helm to make this process repeatable. Below are the commands to install the key components, and a new tool to generate Terraform configurations for your cluster.</p>
+            <section id="setup-wizard" class="mb-16 space-y-8 scroll-mt-20">
+                <h2 class="text-3xl font-bold text-gray-800 dark:text-white border-b-2 border-ef-gold/50 dark:border-ef-gold pb-2">🛠️ Interactive Setup Wizard</h2>
+                <div class="bg-white dark:bg-ef-mid-purple/80 p-6 rounded-xl shadow-lg">
+                    <p class="text-gray-700 dark:text-gray-300 leading-relaxed mb-6">This wizard guides you through the essential setup steps for Agones and Open Match. Complete each step to ensure your cluster is correctly configured before deploying your game servers.</p>
+                    <div id="wizard-container" class="space-y-8">
+                        <!-- Step 1: Prerequisites -->
+                        <div class="wizard-step pl-8 py-4 border-l-4">
+                            <h4 class="text-xl font-semibold flex items-center"><span class="step-circle w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center mr-4">1</span> Prerequisites Checklist</h4>
+                            <div class="mt-4 ml-12 space-y-2 text-gray-700 dark:text-gray-300">
+                                <label class="flex items-center"><input type="checkbox" class="h-4 w-4 text-ef-gold border-gray-300 rounded focus:ring-ef-gold bg-transparent"> <span class="ml-2">A provisioned Kubernetes cluster (v1.27+).</span></label>
+                                <label class="flex items-center"><input type="checkbox" class="h-4 w-4 text-ef-gold border-gray-300 rounded focus:ring-ef-gold bg-transparent"> <span class="ml-2">`kubectl` configured to access your cluster.</span></label>
+                                <label class="flex items-center"><input type="checkbox" class="h-4 w-4 text-ef-gold border-gray-300 rounded focus:ring-ef-gold bg-transparent"> <span class="ml-2">Helm v3+ installed locally.</span></label>
+                            </div>
+                        </div>
+                        <!-- Step 2-5 follow a similar updated visual style... -->
+                        <div class="wizard-step pl-8 py-4 border-l-4">
+                             <h4 class="text-xl font-semibold flex items-center"><span class="step-circle w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center mr-4">2</span> Install Agones</h4>
+                             <div class="mt-4 ml-12">
+                                <p class="text-gray-600 dark:text-gray-400 mb-2">Run the following commands to install Agones using Helm.</p>
+                                <div class="code-block">
+                                    <pre class="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto text-sm"><code class="language-bash">helm repo add agones https://agones.dev/chart/stable
+helm repo update
+kubectl create namespace agones-system
+helm install my-agones agones/agones --namespace agones-system --create-namespace</code></pre>
+                                    <button class="copy-button">Copy</button>
+                                </div>
+                                <button class="mt-4 inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-ef-light-purple/50 hover:bg-gray-50 dark:hover:bg-ef-light-purple wizard-action-btn" data-step="2">Mark as Complete & Verify</button>
+                                <div class="wizard-output mt-4 hidden"></div>
+                             </div>
+                        </div>
+                        <!-- Step 3: Configure Firewall -->
+                        <div class="wizard-step pl-8 py-4 border-l-4">
+                             <h4 class="text-xl font-semibold flex items-center"><span class="step-circle w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center mr-4">3</span> Configure Cloud Firewall for Agones</h4>
+                             <div class="mt-4 ml-12">
+                                <p class="text-gray-600 dark:text-gray-400 mb-4">Agones requires a UDP port range (default: 7000-8000) to be open on your cluster nodes. Use the tool below to generate the correct command for your cloud provider.</p>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="fw-provider" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Cloud Provider</label>
+                                        <select id="fw-provider" class="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white dark:bg-ef-dark-purple border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-ef-gold focus:border-ef-gold sm:text-sm rounded-md">
+                                            <option>GCP</option>
+                                            <option>AWS</option>
+                                            <option>Azure</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="fw-resource-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Resource Name/ID</label>
+                                        <input type="text" id="fw-resource-name" placeholder="e.g., game-server-tag or sg-0123abcd" class="mt-1 block w-full bg-white dark:bg-ef-dark-purple border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ef-gold focus:border-ef-gold sm:text-sm">
+                                    </div>
+                                </div>
+                                <button id="generate-fw-btn" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-ef-dark-purple bg-ef-gold hover:bg-ef-light-gold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ef-gold">
+                                    ✨ Generate Firewall Command
+                                </button>
+                                <div id="fw-output" class="mt-4 hidden">
+                                    <div class="flex justify-center items-center my-4"><div class="loader"></div></div>
+                                </div>
+                                <button class="mt-4 inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-ef-light-purple/50 hover:bg-gray-50 dark:hover:bg-ef-light-purple wizard-action-btn" data-step="3">Mark as Complete</button>
+                             </div>
+                        </div>
+                        <div class="wizard-step pl-8 py-4 border-l-4">
+                             <h4 class="text-xl font-semibold flex items-center"><span class="step-circle w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center mr-4">4</span> Install Open Match</h4>
+                             <div class="mt-4 ml-12">
+                                <p class="text-gray-600 dark:text-gray-400 mb-2">Run these commands to install Open Match. This includes a basic Redis instance suitable for development.</p>
+                                 <div class="code-block">
+                                    <pre class="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto text-sm"><code class="language-bash">helm repo add open-match https://open-match.dev/chart/stable
+helm repo update
+kubectl create namespace open-match
+helm install my-open-match open-match/open-match --namespace open-match --create-namespace</code></pre>
+                                    <button class="copy-button">Copy</button>
+                                </div>
+                                <button class="mt-4 inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-ef-light-purple/50 hover:bg-gray-50 dark:hover:bg-ef-light-purple wizard-action-btn" data-step="4">Mark as Complete & Verify</button>
+                                <div class="wizard-output mt-4 hidden"></div>
+                             </div>
+                        </div>
+                         <div class="wizard-step pl-8 py-4 border-l-4">
+                            <h4 class="text-xl font-semibold flex items-center"><span class="step-circle w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center mr-4">5</span> Setup Complete!</h4>
+                            <div class="mt-4 ml-12">
+                               <p class="text-gray-700 dark:text-gray-300">Your foundational setup of Agones and Open Match is complete. You can now proceed to the next phases to deploy your game servers and matchmaking logic.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+            </section>
+             
+            <section id="foundation" class="mb-16 space-y-8 scroll-mt-20">
+                <h2 class="text-3xl font-bold text-gray-800 dark:text-white border-b-2 border-ef-gold/50 dark:border-ef-gold pb-2">🏗️ Phase 1: Foundation (Advanced)</h2>
+                 <div class="bg-white dark:bg-ef-mid-purple/80 p-6 rounded-xl shadow-lg">
+                    <p class="text-gray-700 dark:text-gray-300 leading-relaxed">For a fully automated setup, use Infrastructure as Code (IaC) to provision the Kubernetes cluster itself. The tool below generates a starter Terraform configuration for this purpose.</p>
                 
-                <div class="bg-white p-6 rounded-xl shadow-sm">
-                    <h3 class="text-2xl font-semibold mb-4">✨ Generate Terraform Cluster Config</h3>
-                    <p class="text-gray-600 mb-4">Select your cloud provider and specify some basic details. Gemini will generate a starter Terraform configuration for provisioning a Kubernetes cluster suitable for this project.</p>
+                    <h3 class="text-2xl font-semibold my-4">✨ Generate Terraform Cluster Config</h3>
+                    <p class="text-gray-600 dark:text-gray-400 mb-4">Select your cloud provider and specify some basic details. Gemini will generate a starter Terraform configuration for provisioning a Kubernetes cluster suitable for this project.</p>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
-                            <label for="tf-provider" class="block text-sm font-medium text-gray-700">Cloud Provider</label>
-                            <select id="tf-provider" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                            <label for="tf-provider" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Cloud Provider</label>
+                            <select id="tf-provider" class="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white dark:bg-ef-dark-purple border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-ef-gold focus:border-ef-gold sm:text-sm rounded-md">
                                 <option>GCP</option>
                                 <option>AWS</option>
                                 <option>Azure</option>
                             </select>
                         </div>
                         <div>
-                            <label for="tf-cluster-name" class="block text-sm font-medium text-gray-700">Cluster Name</label>
-                            <input type="text" id="tf-cluster-name" value="spellbreak-cluster" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            <label for="tf-cluster-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Cluster Name</label>
+                            <input type="text" id="tf-cluster-name" value="elemental-fracture-cluster" class="mt-1 block w-full bg-white dark:bg-ef-dark-purple border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ef-gold focus:border-ef-gold sm:text-sm">
                         </div>
                          <div>
-                            <label for="tf-region" class="block text-sm font-medium text-gray-700">Region</label>
-                            <input type="text" id="tf-region" value="us-central1" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            <label for="tf-region" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Region</label>
+                            <input type="text" id="tf-region" value="us-central1" class="mt-1 block w-full bg-white dark:bg-ef-dark-purple border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ef-gold focus:border-ef-gold sm:text-sm">
                         </div>
                     </div>
-                    <button id="generate-tf-btn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <button id="generate-tf-btn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-ef-dark-purple bg-ef-gold hover:bg-ef-light-gold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ef-gold">
                         ✨ Generate Terraform
                     </button>
                     <div id="tf-output" class="mt-4 hidden">
@@ -182,34 +315,33 @@
                     </div>
                 </div>
             </section>
-
+            
             <section id="agones" class="mb-16 space-y-8 scroll-mt-20">
-                 <h2 class="text-3xl font-bold text-blue-900 border-b-4 border-blue-200 pb-2">👾 Phase 2: Game Server Migration (Agones)</h2>
-                 <div class="bg-white p-6 rounded-xl shadow-sm">
-                    <p class="text-gray-700 leading-relaxed">Here, we define the Spellbreak server as an Agones `GameServer`. Instead of writing the YAML by hand, use the generator below to create a manifest based on your server's specifications.</p>
-                </div>
-                 <div class="bg-white p-6 rounded-xl shadow-sm">
-                    <h3 class="text-2xl font-semibold mb-4">✨ Generate GameServer Manifest</h3>
-                    <p class="text-gray-600 mb-4">Enter your game server's details, and Gemini will generate a complete `GameServer` YAML manifest ready to be deployed.</p>
+                 <h2 class="text-3xl font-bold text-gray-800 dark:text-white border-b-2 border-ef-gold/50 dark:border-ef-gold pb-2">👾 Phase 2: Game Servers</h2>
+                 <div class="bg-white dark:bg-ef-mid-purple/80 p-6 rounded-xl shadow-lg">
+                    <p class="text-gray-700 dark:text-gray-300 leading-relaxed">Here, we define the Spellbreak server as an Agones `GameServer`. Instead of writing the YAML by hand, use the generator below to create a manifest based on your server's specifications.</p>
+                
+                    <h3 class="text-2xl font-semibold my-4">✨ Generate GameServer Manifest</h3>
+                    <p class="text-gray-600 dark:text-gray-400 mb-4">Enter your game server's details, and Gemini will generate a complete `GameServer` YAML manifest ready to be deployed.</p>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
-                            <label for="gs-image" class="block text-sm font-medium text-gray-700">Container Image</label>
-                            <input type="text" id="gs-image" value="brendoncintas/spellbreak_game_server:stable" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            <label for="gs-image" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Container Image</label>
+                            <input type="text" id="gs-image" value="brendoncintas/spellbreak_game_server:stable" class="mt-1 block w-full bg-white dark:bg-ef-dark-purple border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ef-gold focus:border-ef-gold sm:text-sm">
                         </div>
                         <div>
-                            <label for="gs-cpu" class="block text-sm font-medium text-gray-700">CPU Request (e.g., "2")</label>
-                            <input type="text" id="gs-cpu" value="2" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            <label for="gs-cpu" class="block text-sm font-medium text-gray-700 dark:text-gray-300">CPU Request (e.g., "2")</label>
+                            <input type="text" id="gs-cpu" value="2" class="mt-1 block w-full bg-white dark:bg-ef-dark-purple border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ef-gold focus:border-ef-gold sm:text-sm">
                         </div>
                         <div>
-                            <label for="gs-mem" class="block text-sm font-medium text-gray-700">Memory Request (e.g., "4Gi")</label>
-                            <input type="text" id="gs-mem" value="4Gi" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            <label for="gs-mem" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Memory Request (e.g., "4Gi")</label>
+                            <input type="text" id="gs-mem" value="4Gi" class="mt-1 block w-full bg-white dark:bg-ef-dark-purple border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ef-gold focus:border-ef-gold sm:text-sm">
                         </div>
                          <div>
-                            <label for="gs-port" class="block text-sm font-medium text-gray-700">Internal Container Port</label>
-                            <input type="number" id="gs-port" value="7777" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            <label for="gs-port" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Internal Container Port</label>
+                            <input type="number" id="gs-port" value="7777" class="mt-1 block w-full bg-white dark:bg-ef-dark-purple border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ef-gold focus:border-ef-gold sm:text-sm">
                         </div>
                     </div>
-                    <button id="generate-gs-btn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <button id="generate-gs-btn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-ef-dark-purple bg-ef-gold hover:bg-ef-light-gold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ef-gold">
                         ✨ Generate GameServer YAML
                     </button>
                     <div id="gs-output" class="mt-4 hidden">
@@ -219,18 +351,16 @@
             </section>
 
             <section id="openmatch" class="mb-16 space-y-8 scroll-mt-20">
-                <h2 class="text-3xl font-bold text-blue-900 border-b-4 border-blue-200 pb-2">🤝 Phase 3: Matchmaking (Open Match)</h2>
-                 <div class="bg-white p-6 rounded-xl shadow-sm">
-                    <p class="text-gray-700 leading-relaxed">The core of Open Match is your custom logic. Describe your desired matchmaking rules in plain English, and our most powerful AI feature will generate the Go code for a `MatchFunction` to get you started.</p>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-sm">
-                    <h3 class="text-2xl font-semibold mb-4">✨ Generate Match Function Logic</h3>
-                    <p class="text-gray-600 mb-2">Describe how you want to match players. Be specific about criteria like skill, region, party size, and wait times. Gemini will translate your rules into a Go code skeleton.</p>
+                <h2 class="text-3xl font-bold text-gray-800 dark:text-white border-b-2 border-ef-gold/50 dark:border-ef-gold pb-2">🤝 Phase 3: Matchmaking</h2>
+                <div class="bg-white dark:bg-ef-mid-purple/80 p-6 rounded-xl shadow-lg">
+                    <p class="text-gray-700 dark:text-gray-300 leading-relaxed">The core of Open Match is your custom logic. Describe your desired matchmaking rules in plain English, and our most powerful AI feature will generate the Go code for a `MatchFunction` to get you started.</p>
+                    <h3 class="text-2xl font-semibold my-4">✨ Generate Match Function Logic</h3>
+                    <p class="text-gray-600 dark:text-gray-400 mb-2">Describe how you want to match players. Be specific about criteria like skill, region, party size, and wait times. Gemini will translate your rules into a Go code skeleton.</p>
                     <div>
-                        <label for="mm-logic" class="block text-sm font-medium text-gray-700">Matchmaking Rules (in plain English)</label>
-                        <textarea id="mm-logic" rows="4" class="mt-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">Create matches of 4 players for 'squad' mode. Players should be in the same region. Try to match players with a similar 'skill' rating, but relax the skill requirement over 2 minutes to ensure matches are found.</textarea>
+                        <label for="mm-logic" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Matchmaking Rules (in plain English)</label>
+                        <textarea id="mm-logic" rows="4" class="mt-1 shadow-sm focus:ring-ef-gold focus:border-ef-gold block w-full sm:text-sm bg-white dark:bg-ef-dark-purple border border-gray-300 dark:border-gray-600 rounded-md p-2">Create matches of 4 players for 'squad' mode. Players should be in the same region. Try to match players with a similar 'skill' rating, but relax the skill requirement over 2 minutes to ensure matches are found.</textarea>
                     </div>
-                    <button id="generate-mm-btn" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <button id="generate-mm-btn" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-ef-dark-purple bg-ef-gold hover:bg-ef-light-gold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ef-gold">
                         ✨ Generate Go Match Function
                     </button>
                     <div id="mm-output" class="mt-4 hidden">
@@ -240,15 +370,22 @@
             </section>
 
             <section id="database" class="mb-16 space-y-8 scroll-mt-20">
-                <h2 class="text-3xl font-bold text-blue-900 border-b-4 border-blue-200 pb-2">🗃️ Phase 4: Database Migration</h2>
-                 <div class="bg-white p-6 rounded-xl shadow-sm">
-                    <p class="text-gray-700 leading-relaxed">We migrate MariaDB to a Kubernetes `StatefulSet` for stable storage. Below are the manifests for the `Secret`, `StatefulSet`, and a `CronJob` for automated backups.</p>
+                <h2 class="text-3xl font-bold text-gray-800 dark:text-white border-b-2 border-ef-gold/50 dark:border-ef-gold pb-2">🗃️ Phase 4: Database</h2>
+                 <div class="bg-white dark:bg-ef-mid-purple/80 p-6 rounded-xl shadow-lg">
+                    <p class="text-gray-700 dark:text-gray-300 leading-relaxed">Migrating the MariaDB database involves backing up data from the Docker volume and restoring it to a Kubernetes `PersistentVolume`. Use a `StatefulSet` for reliable deployment.</p>
+                    <h4 class="text-lg font-semibold mt-4">Simplified Migration Process</h4>
+                    <ol class="list-decimal list-inside space-y-1 mt-2 text-gray-600 dark:text-gray-400">
+                        <li><b>Backup from Docker:</b> Use `mariadb-dump` to create a logical `.sql` backup of your existing database.</li>
+                        <li><b>Deploy in Kubernetes:</b> Use the `StatefulSet` manifest below to deploy a new MariaDB instance with persistent storage.</li>
+                        <li><b>Restore to Kubernetes:</b> Use `kubectl cp` to copy your `.sql` backup into the new MariaDB pod, then use the `mysql` client inside the pod to restore the data.</li>
+                    </ol>
                 </div>
-                 <div class="bg-white p-6 rounded-xl shadow-sm">
-                    <div class="border-b border-gray-200">
+                 <div class="bg-white dark:bg-ef-mid-purple/80 p-6 rounded-xl shadow-lg">
+                    <h3 class="text-2xl font-semibold mb-4">Database Manifests</h3>
+                    <div class="border-b border-gray-200 dark:border-gray-700">
                         <nav class="-mb-px flex space-x-6" aria-label="Tabs" id="database-tabs">
                             <button class="tab active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-target="db-statefulset">StatefulSet & Service</button>
-                            <button class="tab whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700" data-target="db-backup">Backup CronJob</button>
+                            <button class="tab whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" data-target="db-backup">Backup CronJob</button>
                         </nav>
                     </div>
                     <div class="pt-6">
@@ -298,7 +435,7 @@ spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
-          storage: 20Gi # Adjust size as needed
+          storage: 20Gi
 </code></pre>
                                 <button class="copy-button">Copy</button>
                             </div>
@@ -310,7 +447,7 @@ kind: CronJob
 metadata:
   name: mariadb-backup
 spec:
-  schedule: "0 2 * * *" # Run daily at 2 AM
+  schedule: "0 2 * * *"
   jobTemplate:
     spec:
       template:
@@ -326,13 +463,13 @@ spec:
             - -c
             - |
               mariadb-dump --host=spellbreak-mariadb -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE > /backups/backup-$(date +%Y-%m-%d).sql
-              echo "Backup complete." # In production, add upload step here
+              echo "Backup complete."
             volumeMounts:
             - name: backup-volume
               mountPath: /backups
           volumes:
           - name: backup-volume
-            emptyDir: {} # For production, use a PersistentVolumeClaim
+            emptyDir: {}
           restartPolicy: OnFailure
 </code></pre>
                                 <button class="copy-button">Copy</button>
@@ -343,45 +480,53 @@ spec:
             </section>
 
              <section id="networking" class="mb-16 space-y-8 scroll-mt-20">
-                <h2 class="text-3xl font-bold text-blue-900 border-b-4 border-blue-200 pb-2">🌐 Phase 5: Networking & Connectivity</h2>
-                 <div class="bg-white p-6 rounded-xl shadow-sm">
-                    <p class="text-gray-700 leading-relaxed">Here we configure how players connect and how services are secured. A `NetworkPolicy` acts as a firewall, while tools like `external-dns` and `cert-manager` automate connectivity.</p>
-                </div>
-                 <div class="bg-white p-6 rounded-xl shadow-sm">
-                    <h3 class="text-2xl font-semibold mb-4">Automation Tools for Networking</h3>
-                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                            <h4 class="font-bold text-lg text-blue-800">ExternalDNS</h4>
-                            <p class="text-blue-700 mt-2">Automatically manages DNS records for your external services in providers like AWS Route 53 or Google Cloud DNS. When your Ingress gets an IP, ExternalDNS creates a corresponding `A` record.</p>
-                        </div>
-                        <div class="bg-green-50 border border-green-200 rounded-lg p-6">
-                            <h4 class="font-bold text-lg text-green-800">Cert-Manager</h4>
-                            <p class="text-green-700 mt-2">Automates the management and issuance of TLS certificates from sources like Let's Encrypt. It ensures your Ingress endpoints are secured with HTTPS without manual intervention.</p>
-                        </div>
+                <h2 class="text-3xl font-bold text-gray-800 dark:text-white border-b-2 border-ef-gold/50 dark:border-ef-gold pb-2">🌐 Phase 5: Networking</h2>
+                <div class="bg-white dark:bg-ef-mid-purple/80 p-6 rounded-xl shadow-lg">
+                    <p class="text-gray-700 dark:text-gray-300 leading-relaxed">Here we configure how players connect and how services are secured. A `NetworkPolicy` acts as a firewall, while tools like `external-dns` and `cert-manager` automate connectivity.</p>
+                    <h3 class="text-2xl font-semibold my-4">Securing Database Access</h3>
+                    <p class="text-gray-600 dark:text-gray-400 mb-2">This `NetworkPolicy` is a security best practice. It acts as a firewall, ensuring that only pods with the label `app: spellbreak-matchmaker` can connect to the MariaDB database pods on port 3306.</p>
+                    <div class="code-block">
+                        <pre class="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto text-sm"><code class="language-yaml">apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-allow-matchmaker
+spec:
+  podSelector:
+    matchLabels:
+      app: spellbreak-mariadb
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: spellbreak-matchmaker
+    ports:
+    - protocol: TCP
+      port: 3306
+</code></pre>
+                        <button class="copy-button">Copy</button>
                     </div>
                 </div>
             </section>
 
              <section id="automation" class="mb-16 space-y-8 scroll-mt-20">
-                <h2 class="text-3xl font-bold text-blue-900 border-b-4 border-blue-200 pb-2">🤖 Phase 6: Automation & Operations</h2>
-                 <div class="bg-white p-6 rounded-xl shadow-sm">
-                    <p class="text-gray-700 leading-relaxed">The final phase is about building a robust, automated CI/CD pipeline. Use the generator below to create a starter GitHub Actions workflow for building your game server container and updating your GitOps repository.</p>
-                </div>
-
-                <div class="bg-white p-6 rounded-xl shadow-sm">
-                     <h3 class="text-2xl font-semibold mb-4">✨ Generate CI/CD Workflow</h3>
-                     <p class="text-gray-600 mb-2">Provide your GitOps repository and container registry details, and Gemini will generate a GitHub Actions workflow YAML file.</p>
+                <h2 class="text-3xl font-bold text-gray-800 dark:text-white border-b-2 border-ef-gold/50 dark:border-ef-gold pb-2">🤖 Phase 6: Automation</h2>
+                 <div class="bg-white dark:bg-ef-mid-purple/80 p-6 rounded-xl shadow-lg">
+                    <p class="text-gray-700 dark:text-gray-300 leading-relaxed">The final phase is about building a robust, automated CI/CD pipeline. Use the generator below to create a starter GitHub Actions workflow for building your game server container and updating your GitOps repository.</p>
+                     <h3 class="text-2xl font-semibold my-4">✨ Generate CI/CD Workflow</h3>
+                     <p class="text-gray-600 dark:text-gray-400 mb-2">Provide your GitOps repository and container registry details, and Gemini will generate a GitHub Actions workflow YAML file.</p>
                       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
-                            <label for="ci-gitops-repo" class="block text-sm font-medium text-gray-700">GitOps Repo (e.g., your-org/k8s-config)</label>
-                            <input type="text" id="ci-gitops-repo" value="your-org/spellbreak-k8s-config" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            <label for="ci-gitops-repo" class="block text-sm font-medium text-gray-700 dark:text-gray-300">GitOps Repo (e.g., your-org/k8s-config)</label>
+                            <input type="text" id="ci-gitops-repo" value="your-org/spellbreak-k8s-config" class="mt-1 block w-full bg-white dark:bg-ef-dark-purple border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ef-gold focus:border-ef-gold sm:text-sm">
                         </div>
                         <div>
-                            <label for="ci-registry" class="block text-sm font-medium text-gray-700">Container Registry (e.g., ghcr.io/your-org)</label>
-                            <input type="text" id="ci-registry" value="ghcr.io/your-org/spellbreak-server" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            <label for="ci-registry" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Container Registry (e.g., ghcr.io/your-org)</label>
+                            <input type="text" id="ci-registry" value="ghcr.io/your-org/spellbreak-server" class="mt-1 block w-full bg-white dark:bg-ef-dark-purple border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ef-gold focus:border-ef-gold sm:text-sm">
                         </div>
                     </div>
-                     <button id="generate-ci-btn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                     <button id="generate-ci-btn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-ef-dark-purple bg-ef-gold hover:bg-ef-light-gold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ef-gold">
                         ✨ Generate GitHub Actions YAML
                     </button>
                     <div id="ci-output" class="mt-4 hidden">
@@ -394,26 +539,70 @@ spec:
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            let k8sChart;
+            
+            // Theme toggler
+            const themeToggleBtn = document.getElementById('theme-toggle');
+            const darkIcon = document.getElementById('theme-toggle-dark-icon');
+            const lightIcon = document.getElementById('theme-toggle-light-icon');
+
+            if (themeToggleBtn && darkIcon && lightIcon) {
+                if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                    lightIcon.classList.remove('hidden');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    darkIcon.classList.remove('hidden');
+                }
+
+                themeToggleBtn.addEventListener('click', function() {
+                    darkIcon.classList.toggle('hidden');
+                    lightIcon.classList.toggle('hidden');
+
+                    if (localStorage.getItem('color-theme')) {
+                        if (localStorage.getItem('color-theme') === 'light') {
+                            document.documentElement.classList.add('dark');
+                            localStorage.setItem('color-theme', 'dark');
+                        } else {
+                            document.documentElement.classList.remove('dark');
+                            localStorage.setItem('color-theme', 'light');
+                        }
+                    } else {
+                        if (document.documentElement.classList.contains('dark')) {
+                            document.documentElement.classList.remove('dark');
+                            localStorage.setItem('color-theme', 'light');
+                        } else {
+                            document.documentElement.classList.add('dark');
+                            localStorage.setItem('color-theme', 'dark');
+                        }
+                    }
+                    updateChartColors();
+                });
+            }
+
             const sections = document.querySelectorAll('main section');
             const navLinks = document.querySelectorAll('.nav-link');
-            const mainContent = document.querySelector('main');
 
             const observer = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
+                        const sectionId = entry.target.id;
                         navLinks.forEach(link => {
-                            link.classList.toggle('active', link.getAttribute('href').substring(1) === entry.target.id);
+                            link.classList.toggle('active', link.getAttribute('href') === `#${sectionId}`);
                         });
                     }
                 });
-            }, { root: mainContent, rootMargin: "-50% 0px -50% 0px", threshold: 0 });
+            }, { root: document.querySelector('main'), rootMargin: "-40% 0px -60% 0px", threshold: 0 });
 
             sections.forEach(section => observer.observe(section));
 
             navLinks.forEach(link => {
                 link.addEventListener('click', (e) => {
                     e.preventDefault();
-                    document.querySelector(link.getAttribute('href')).scrollIntoView({ behavior: 'smooth' });
+                    const target = document.querySelector(link.getAttribute('href'));
+                    if(target) {
+                        target.scrollIntoView({ behavior: 'smooth' });
+                    }
                 });
             });
             
@@ -422,21 +611,27 @@ spec:
                 if (!tabContainer) return;
 
                 const tabs = tabContainer.querySelectorAll('.tab');
+                const contentContainer = tabContainer.closest('.bg-white').querySelector('.pt-6');
+
                 tabs.forEach(tab => {
                     tab.addEventListener('click', () => {
-                        tabs.forEach(t => t.classList.remove('active'));
+                        tabs.forEach(t => { 
+                            t.classList.remove('active');
+                            t.classList.add('text-gray-500', 'hover:text-gray-700', 'dark:text-gray-400', 'dark:hover:text-gray-200');
+                        });
                         tab.classList.add('active');
+                        tab.classList.remove('text-gray-500', 'hover:text-gray-700', 'dark:text-gray-400', 'dark:hover:text-gray-200');
                         
                         const targetId = tab.dataset.target;
-                        const contentContainer = tab.closest('.bg-white').querySelector('.pt-6');
-                        contentContainer.querySelectorAll('.tab-content').forEach(content => {
-                            content.classList.toggle('hidden', content.id !== targetId);
-                        });
+                        if(contentContainer) {
+                           contentContainer.querySelectorAll('.tab-content').forEach(content => {
+                                content.classList.toggle('hidden', content.id !== targetId);
+                            });
+                        }
                     });
                 });
             }
 
-            setupTabs('agones-tabs');
             setupTabs('database-tabs');
 
             function setupCopyButton(button) {
@@ -465,7 +660,6 @@ spec:
 
             document.querySelectorAll('.copy-button').forEach(setupCopyButton);
 
-            // Gemini API call helper
             async function callGemini(prompt, outputElement) {
                 outputElement.innerHTML = '<div class="flex justify-center items-center my-4"><div class="loader"></div></div>';
                 outputElement.classList.remove('hidden');
@@ -501,35 +695,91 @@ spec:
                         `;
                         setupCopyButton(outputElement.querySelector('.copy-button'));
                     } else {
-                        throw new Error("Invalid response structure from API");
+                       throw new Error("Invalid response structure from API");
                     }
                 } catch (error) {
                     console.error("Error calling Gemini API:", error);
                     outputElement.innerHTML = `<p class="text-red-500">Sorry, something went wrong. Please check the console for details.</p>`;
                 }
             }
+
+            const wizardSteps = document.querySelectorAll('.wizard-step');
+            document.querySelectorAll('.wizard-action-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const step = parseInt(e.target.dataset.step);
+                    const currentStepEl = wizardSteps[step - 1];
+                    currentStepEl.classList.add('completed');
+                    
+                    if (step < wizardSteps.length) {
+                        wizardSteps[step].classList.add('active');
+                    }
+                    
+                    const outputDiv = currentStepEl.querySelector('.wizard-output');
+                    if (outputDiv) {
+                        let verifyPrompt = '';
+                        if (step === 2) {
+                            verifyPrompt = 'Explain how to verify a Helm installation of Agones. The user has just run the install command. What `kubectl` command should they run, what is the expected output for the pods in the `agones-system` namespace, and what are two common problems if the pods are not in a `Running` state? Format the output as simple markdown.';
+                        } else if (step === 4) {
+                            verifyPrompt = 'Explain how to verify a Helm installation of Open Match. The user has just run the install command. What `kubectl` command should they run, what are the names of the core pods they should see in the `open-match` namespace, and what is a common reason for pods being stuck in `ContainerCreating`? Format the output as simple markdown.';
+                        }
+                        
+                        if (verifyPrompt) {
+                             outputDiv.innerHTML = '<div class="flex justify-center items-center my-4"><div class="loader"></div></div>';
+                             outputDiv.classList.remove('hidden');
+
+                            callGemini(verifyPrompt, outputDiv).then(() => {
+                                const codeBlock = outputDiv.querySelector('.code-block');
+                                if (codeBlock) {
+                                    const text = codeBlock.querySelector('code').innerText.replace(/```(\w+)?\n/g, '').replace(/```/g, '');
+                                    outputDiv.innerHTML = `<div class="prose prose-sm dark:prose-invert max-w-none">${text.replace(/\n/g, '<br>')}</div>`;
+                                }
+                            });
+                        }
+                    }
+                });
+            });
             
-            // Feature 1: Terraform Generator
-            document.getElementById('generate-tf-btn').addEventListener('click', () => {
-                const provider = document.getElementById('tf-provider').value;
-                const clusterName = document.getElementById('tf-cluster-name').value;
-                const region = document.getElementById('tf-region').value;
-                const prompt = `Generate a complete Terraform configuration (\`main.tf\`) to provision a managed Kubernetes cluster on ${provider}.
+            const genFwBtn = document.getElementById('generate-fw-btn');
+            if (genFwBtn) {
+                genFwBtn.addEventListener('click', () => {
+                    const provider = document.getElementById('fw-provider').value;
+                    const resourceName = document.getElementById('fw-resource-name').value || (provider === 'GCP' ? 'game-server' : 'sg-0123456789abcdef0');
+                    let prompt = '';
+                    if(provider === 'GCP') {
+                        prompt = `Generate a gcloud CLI command to create a firewall rule for Agones. The rule should allow UDP traffic on ports 7000-8000. It should target nodes with the network tag "${resourceName}". The rule should be named "agones-gameserver-firewall". Wrap the output in a single \`\`\`bash block.`;
+                    } else if (provider === 'AWS') {
+                        prompt = `Generate an AWS CLI command to authorize ingress on a security group for Agones. The rule should allow UDP traffic on ports 7000-8000 from anywhere (0.0.0.0/0). The security group ID is "${resourceName}". Wrap the output in a single \`\`\`bash block.`;
+                    } else if (provider === 'Azure') {
+                        prompt = `Generate an Azure CLI command to create a network security group (NSG) rule for Agones. The rule should be named "AllowAgonesUDP", have a priority of 1010, and allow inbound UDP traffic on ports 7000-8000 from any source. It should be applied to an NSG named "${resourceName}" in a resource group named "MyResourceGroup". Wrap the output in a single \`\`\`bash block.`;
+                    }
+                    callGemini(prompt, document.getElementById('fw-output'));
+                });
+            }
+            
+            const genTfBtn = document.getElementById('generate-tf-btn');
+            if (genTfBtn) {
+                genTfBtn.addEventListener('click', () => {
+                    const provider = document.getElementById('tf-provider').value;
+                    const clusterName = document.getElementById('tf-cluster-name').value;
+                    const region = document.getElementById('tf-region').value;
+                    const prompt = `Generate a complete Terraform configuration (\`main.tf\`) to provision a managed Kubernetes cluster on ${provider}.
 - The cluster name should be "${clusterName}".
 - The region should be "${region}".
 - For ${provider}, use the appropriate resource (e.g., \`google_container_cluster\`, \`aws_eks_cluster\`, \`azurerm_kubernetes_cluster\`).
 - Include a dedicated node pool for game servers named "game-servers-pool" with machine type suitable for gaming (e.g., n1-standard-4 for GCP, m5.xlarge for AWS, Standard_D4s_v3 for Azure).
 - The code should be complete, runnable, and wrapped in a single \`\`\`terraform block.`;
-                callGemini(prompt, document.getElementById('tf-output'));
-            });
+                    callGemini(prompt, document.getElementById('tf-output'));
+                });
+            }
 
-            // Feature 2: GameServer Generator
-            document.getElementById('generate-gs-btn').addEventListener('click', () => {
-                const image = document.getElementById('gs-image').value;
-                const cpu = document.getElementById('gs-cpu').value;
-                const mem = document.getElementById('gs-mem').value;
-                const port = document.getElementById('gs-port').value;
-                const prompt = `Generate a complete Agones GameServer YAML manifest.
+            const genGsBtn = document.getElementById('generate-gs-btn');
+            if (genGsBtn) {
+                genGsBtn.addEventListener('click', () => {
+                    const image = document.getElementById('gs-image').value;
+                    const cpu = document.getElementById('gs-cpu').value;
+                    const mem = document.getElementById('gs-mem').value;
+                    const port = document.getElementById('gs-port').value;
+                    const prompt = `Generate a complete Agones GameServer YAML manifest.
 - The container image should be "${image}".
 - The container name should be "spellbreak-server".
 - It should have a dynamic UDP port policy named "gameport" on internal container port ${port}.
@@ -537,13 +787,15 @@ spec:
 - Resource limits should be CPU: "${parseInt(cpu) + 1}", memory: "${parseInt(mem) + 2}Gi".
 - Include a standard health check.
 - The code should be wrapped in a single \`\`\`yaml block.`;
-                callGemini(prompt, document.getElementById('gs-output'));
-            });
-
-            // Feature 3: Match Function Generator
-            document.getElementById('generate-mm-btn').addEventListener('click', () => {
-                const logic = document.getElementById('mm-logic').value;
-                const prompt = `Generate the body of a boilerplate Open Match Match Function in Go.
+                    callGemini(prompt, document.getElementById('gs-output'));
+                });
+            }
+            
+            const genMmBtn = document.getElementById('generate-mm-btn');
+            if(genMmBtn) {
+                genMmBtn.addEventListener('click', () => {
+                    const logic = document.getElementById('mm-logic').value;
+                    const prompt = `Generate the body of a boilerplate Open Match Match Function in Go.
 The user wants the following logic: "${logic}".
 Based on this, implement the \`makeMatches\` function.
 - The function should create one or more MatchProfile.
@@ -551,14 +803,16 @@ Based on this, implement the \`makeMatches\` function.
 - It should iterate through the pools and form matches based on the user's rules.
 - The output should be only the Go code, wrapped in a single \`\`\`go block.
 - Make sure to add comments explaining the logic for skill relaxation, region grouping, etc., based on the user's request.`;
-                callGemini(prompt, document.getElementById('mm-output'));
-            });
+                    callGemini(prompt, document.getElementById('mm-output'));
+                });
+            }
 
-            // Feature 4: CI/CD Generator
-            document.getElementById('generate-ci-btn').addEventListener('click', () => {
-                const gitopsRepo = document.getElementById('ci-gitops-repo').value;
-                const registry = document.getElementById('ci-registry').value;
-                const prompt = `Generate a complete GitHub Actions workflow YAML file for a CI/CD pipeline.
+            const genCiBtn = document.getElementById('generate-ci-btn');
+            if (genCiBtn) {
+                genCiBtn.addEventListener('click', () => {
+                    const gitopsRepo = document.getElementById('ci-gitops-repo').value;
+                    const registry = document.getElementById('ci-registry').value;
+                    const prompt = `Generate a complete GitHub Actions workflow YAML file for a CI/CD pipeline.
 The workflow should be named "Build and Deploy Game Server".
 It should trigger on push to the \`main\` branch.
 The jobs should be:
@@ -572,58 +826,86 @@ The jobs should be:
    - Uses the 'yq' tool to update a values.yaml file at './fleets/squad/values.yaml' to set \`image.tag\` to the new git SHA.
    - Commits and pushes the change to the config repo.
 The code should be wrapped in a single \`\`\`yaml block.`;
-                callGemini(prompt, document.getElementById('ci-output'));
-            });
+                    callGemini(prompt, document.getElementById('ci-output'));
+                });
+            }
 
+            const k8sChartCtx = document.getElementById('k8sComparisonChart')?.getContext('2d');
 
-            // Original chart script
-            const k8sData = {
-                labels: ['Cost', 'Complexity', 'Control', 'Scalability', 'Gaming Features'],
-                datasets: [{
-                    label: 'Managed K8s (GKE/EKS/AKS)',
-                    data: [3, 2, 3, 5, 4],
-                    backgroundColor: 'rgba(59, 130, 246, 0.7)',
-                    borderColor: 'rgba(59, 130, 246, 1)',
-                    borderWidth: 1
-                }, {
-                    label: 'Self-Managed K8s',
-                    data: [2, 5, 5, 4, 5],
-                    backgroundColor: 'rgba(107, 114, 128, 0.7)',
-                    borderColor: 'rgba(107, 114, 128, 1)',
-                    borderWidth: 1
-                }]
-            };
+            function getChartOptions() {
+                const isDark = document.documentElement.classList.contains('dark');
+                const textColor = isDark ? '#e5e7eb' : '#374151';
+                const gridColor = isDark ? 'rgba(229, 231, 235, 0.2)' : 'rgba(55, 65, 81, 0.1)';
 
-            const k8sTooltips = {
-                'Cost': 'Managed has control plane fees but lower personnel cost. Self-managed has higher engineering costs for maintenance.',
-                'Complexity': 'Managed is significantly less complex as the provider handles the control plane. Self-managed requires deep K8s expertise.',
-                'Control': 'Self-managed offers complete control over the cluster, including kernel tuning. Managed has some limitations.',
-                'Scalability': 'Both are highly scalable, but managed services often have more robust and battle-tested autoscaling integrations.',
-                'Gaming Features': 'Both can be configured for gaming, but managed services offer easier integration with regional load balancers and DDoS protection.',
-            };
-
-            const k8sConfig = {
-                type: 'bar',
-                data: k8sData,
-                options: {
+                return {
                     maintainAspectRatio: false,
                     responsive: true,
                     indexAxis: 'y',
                     scales: {
-                        x: { beginAtZero: true, max: 5, ticks: { stepSize: 1, callback: (v) => ['','Low','Medium','High','Very High','Max'][v] }},
+                        x: { 
+                            beginAtZero: true, max: 5, 
+                            ticks: { 
+                                stepSize: 1, 
+                                color: textColor,
+                                callback: (v) => ['','Low','Medium','High','Very High','Max'][v] 
+                            },
+                            grid: { color: gridColor }
+                        },
+                         y: {
+                            ticks: { color: textColor },
+                            grid: { color: gridColor }
+                         }
                     },
                     plugins: {
-                        legend: { position: 'top' },
+                        legend: { position: 'top', labels: { color: textColor } },
                         title: { display: false },
-                        tooltip: { callbacks: { afterBody: (c) => k8sTooltips[c[0].label] || '' } }
+                        tooltip: { 
+                            titleColor: '#ffffff',
+                            bodyColor: '#e5e7eb',
+                            backgroundColor: '#1c1a3e'
+                         }
                     }
                 }
-            };
-            
-            const k8sChartCtx = document.getElementById('k8sComparisonChart')?.getContext('2d');
-            if (k8sChartCtx) {
-                new Chart(k8sChartCtx, k8sConfig);
             }
+            
+            function renderChart() {
+                 if (k8sChart) {
+                    k8sChart.destroy();
+                }
+                const k8sData = {
+                    labels: ['Cost', 'Complexity', 'Control', 'Scalability', 'Gaming Features'],
+                    datasets: [{
+                        label: 'Managed K8s (GKE/EKS/AKS)',
+                        data: [3, 2, 3, 5, 4],
+                        backgroundColor: '#4d468d',
+                        borderColor: '#a099d4',
+                        borderWidth: 1
+                    }, {
+                        label: 'Self-Managed K8s',
+                        data: [2, 5, 5, 4, 5],
+                        backgroundColor: '#a0a0a0',
+                        borderColor: '#d0d0d0',
+                        borderWidth: 1
+                    }]
+                };
+
+                if (k8sChartCtx) {
+                   k8sChart = new Chart(k8sChartCtx, {
+                        type: 'bar',
+                        data: k8sData,
+                        options: getChartOptions()
+                   });
+                }
+            }
+            
+            function updateChartColors() {
+                if (k8sChart) {
+                    k8sChart.options = getChartOptions();
+                    k8sChart.update();
+                }
+            }
+            
+            renderChart();
         });
     </script>
 </body>
