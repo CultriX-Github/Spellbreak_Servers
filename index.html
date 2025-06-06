@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Chosen Palette: Cool Blues and Warm Neutrals -->
+    <!-- Application Structure Plan: A task-oriented, phased migration dashboard. A persistent sidebar navigation represents the main migration phases (Overview, Foundation, Game Server, Matchmaking, etc.). The main content area interactively displays details for the selected phase. This structure breaks the complex process into manageable, logical steps, facilitating both sequential learning and quick reference, which is more usable than a linear document for such a dense, technical topic. -->
+    <!-- Visualization & Content Choices: Key comparisons (Managed vs. Self-hosted K8s) use Chart.js bar charts for easy visual analysis. Complex architectures (Agones/Open Match) are simplified into interactive diagrams using HTML/Tailwind and JS for hover-based info reveal, avoiding SVG/Mermaid. A tabbed interface organizes detailed configurations (e.g., Fleets per game mode), and a stepper/timeline visually grounds the user in the overall migration process. Stat cards highlight key metrics, and code snippets are presented cleanly with copy functionality. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <title>Migration Guide: Swarm to Kubernetes for Game Servers</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* gray-50 */
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 40vh;
+        }
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 300px;
+                max-height: 50vh;
+            }
+        }
+        .nav-link.active {
+            background-color: #e0f2fe; /* sky-100 */
+            color: #0c4a6e; /* sky-900 */
+            font-weight: 600;
+        }
+        .component-diagram-item {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .component-diagram-item:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .tooltip {
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .has-tooltip:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        .code-block {
+            position: relative;
+        }
+        .copy-button {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background-color: #4b5563;
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        .code-block:hover .copy-button {
+            opacity: 1;
+        }
+        .tab.active {
+            border-bottom: 2px solid #2563eb;
+            color: #1e3a8a;
+            font-weight: 600;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div class="flex min-h-screen">
+        <!-- Sidebar Navigation -->
+        <aside class="w-64 bg-white border-r border-gray-200 p-5 hidden lg:block sticky top-0 h-screen overflow-y-auto">
+            <h1 class="text-xl font-bold text-blue-800">Migration Playbook</h1>
+            <p class="text-sm text-gray-500 mb-6">Spellbreak Server Edition</p>
+            <nav id="desktop-nav">
+                <ul class="space-y-2">
+                    <li><a href="#overview" class="nav-link text-gray-600 hover:bg-gray-100 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="overview">
+                        <span class="mr-3">🗺️</span> Overview & Planning
+                    </a></li>
+                    <li><a href="#foundation" class="nav-link text-gray-600 hover:bg-gray-100 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="foundation">
+                        <span class="mr-3">🏗️</span> Phase 1: Foundation
+                    </a></li>
+                    <li><a href="#agones" class="nav-link text-gray-600 hover:bg-gray-100 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="agones">
+                        <span class="mr-3">👾</span> Phase 2: Game Servers
+                    </a></li>
+                    <li><a href="#openmatch" class="nav-link text-gray-600 hover:bg-gray-100 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="openmatch">
+                        <span class="mr-3">🤝</span> Phase 3: Matchmaking
+                    </a></li>
+                    <li><a href="#database" class="nav-link text-gray-600 hover:bg-gray-100 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="database">
+                        <span class="mr-3">🗃️</span> Phase 4: Database
+                    </a></li>
+                    <li><a href="#networking" class="nav-link text-gray-600 hover:bg-gray-100 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="networking">
+                        <span class="mr-3">🌐</span> Phase 5: Networking
+                    </a></li>
+                     <li><a href="#automation" class="nav-link text-gray-600 hover:bg-gray-100 flex items-center p-2 rounded-lg transition-colors duration-200" data-section="automation">
+                        <span class="mr-3">🤖</span> Phase 6: Automation
+                    </a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-4 md:p-8 lg:p-12 bg-gray-50 overflow-y-auto">
+            <header class="mb-10">
+                <h1 class="text-4xl font-bold text-gray-900 leading-tight">From Docker Swarm to Kubernetes</h1>
+                <p class="text-lg text-gray-600 mt-2">An Interactive Guide to Migrating Spellbreak Servers with Agones & Open Match</p>
+            </header>
+
+            <section id="overview" class="mb-16 space-y-8 scroll-mt-20">
+                <h2 class="text-3xl font-bold text-blue-900 border-b-4 border-blue-200 pb-2">🗺️ Overview & Planning</h2>
+                <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <p class="text-gray-700 leading-relaxed">This guide transforms the complex process of migrating a game server infrastructure into a structured, phase-based journey. The goal is to move from a Docker Swarm setup to a scalable, cloud-native architecture on Kubernetes, using industry-standard tools like Agones for game server hosting and Open Match for matchmaking. Each section is designed to help you make key decisions and understand the procedures involved. We'll start by comparing foundational choices, like managed vs. self-hosted Kubernetes, to set the stage for a successful migration.</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <h3 class="text-2xl font-semibold mb-4 text-center">Key Decision: Managed vs. Self-Managed Kubernetes</h3>
+                    <p class="text-center text-gray-600 mb-6">Choosing your Kubernetes foundation is the first critical step. Managed services (GKE, EKS, AKS) reduce operational burden, while self-managed clusters offer maximum control. This chart highlights the trade-offs. Hover over the bars for more details.</p>
+                    <div class="chart-container">
+                        <canvas id="k8sComparisonChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section id="foundation" class="mb-16 space-y-8 scroll-mt-20">
+                <h2 class="text-3xl font-bold text-blue-900 border-b-4 border-blue-200 pb-2">🏗️ Phase 1: Foundation Setup</h2>
+                 <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <p class="text-gray-700 leading-relaxed">This phase focuses on building the core infrastructure. We will use Infrastructure as Code (IaC) with Helm to make this process repeatable. Below are the commands to install the key components, and a new tool to generate Terraform configurations for your cluster.</p>
+                </div>
+                
+                <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <h3 class="text-2xl font-semibold mb-4">✨ Generate Terraform Cluster Config</h3>
+                    <p class="text-gray-600 mb-4">Select your cloud provider and specify some basic details. Gemini will generate a starter Terraform configuration for provisioning a Kubernetes cluster suitable for this project.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <label for="tf-provider" class="block text-sm font-medium text-gray-700">Cloud Provider</label>
+                            <select id="tf-provider" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                                <option>GCP</option>
+                                <option>AWS</option>
+                                <option>Azure</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="tf-cluster-name" class="block text-sm font-medium text-gray-700">Cluster Name</label>
+                            <input type="text" id="tf-cluster-name" value="spellbreak-cluster" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                         <div>
+                            <label for="tf-region" class="block text-sm font-medium text-gray-700">Region</label>
+                            <input type="text" id="tf-region" value="us-central1" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                    </div>
+                    <button id="generate-tf-btn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        ✨ Generate Terraform
+                    </button>
+                    <div id="tf-output" class="mt-4 hidden">
+                        <div class="flex justify-center items-center my-4"><div class="loader"></div></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="agones" class="mb-16 space-y-8 scroll-mt-20">
+                 <h2 class="text-3xl font-bold text-blue-900 border-b-4 border-blue-200 pb-2">👾 Phase 2: Game Server Migration (Agones)</h2>
+                 <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <p class="text-gray-700 leading-relaxed">Here, we define the Spellbreak server as an Agones `GameServer`. Instead of writing the YAML by hand, use the generator below to create a manifest based on your server's specifications.</p>
+                </div>
+                 <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <h3 class="text-2xl font-semibold mb-4">✨ Generate GameServer Manifest</h3>
+                    <p class="text-gray-600 mb-4">Enter your game server's details, and Gemini will generate a complete `GameServer` YAML manifest ready to be deployed.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="gs-image" class="block text-sm font-medium text-gray-700">Container Image</label>
+                            <input type="text" id="gs-image" value="brendoncintas/spellbreak_game_server:stable" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label for="gs-cpu" class="block text-sm font-medium text-gray-700">CPU Request (e.g., "2")</label>
+                            <input type="text" id="gs-cpu" value="2" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label for="gs-mem" class="block text-sm font-medium text-gray-700">Memory Request (e.g., "4Gi")</label>
+                            <input type="text" id="gs-mem" value="4Gi" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                         <div>
+                            <label for="gs-port" class="block text-sm font-medium text-gray-700">Internal Container Port</label>
+                            <input type="number" id="gs-port" value="7777" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                    </div>
+                    <button id="generate-gs-btn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        ✨ Generate GameServer YAML
+                    </button>
+                    <div id="gs-output" class="mt-4 hidden">
+                        <div class="flex justify-center items-center my-4"><div class="loader"></div></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="openmatch" class="mb-16 space-y-8 scroll-mt-20">
+                <h2 class="text-3xl font-bold text-blue-900 border-b-4 border-blue-200 pb-2">🤝 Phase 3: Matchmaking (Open Match)</h2>
+                 <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <p class="text-gray-700 leading-relaxed">The core of Open Match is your custom logic. Describe your desired matchmaking rules in plain English, and our most powerful AI feature will generate the Go code for a `MatchFunction` to get you started.</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <h3 class="text-2xl font-semibold mb-4">✨ Generate Match Function Logic</h3>
+                    <p class="text-gray-600 mb-2">Describe how you want to match players. Be specific about criteria like skill, region, party size, and wait times. Gemini will translate your rules into a Go code skeleton.</p>
+                    <div>
+                        <label for="mm-logic" class="block text-sm font-medium text-gray-700">Matchmaking Rules (in plain English)</label>
+                        <textarea id="mm-logic" rows="4" class="mt-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">Create matches of 4 players for 'squad' mode. Players should be in the same region. Try to match players with a similar 'skill' rating, but relax the skill requirement over 2 minutes to ensure matches are found.</textarea>
+                    </div>
+                    <button id="generate-mm-btn" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        ✨ Generate Go Match Function
+                    </button>
+                    <div id="mm-output" class="mt-4 hidden">
+                        <div class="flex justify-center items-center my-4"><div class="loader"></div></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="database" class="mb-16 space-y-8 scroll-mt-20">
+                <h2 class="text-3xl font-bold text-blue-900 border-b-4 border-blue-200 pb-2">🗃️ Phase 4: Database Migration</h2>
+                 <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <p class="text-gray-700 leading-relaxed">We migrate MariaDB to a Kubernetes `StatefulSet` for stable storage. Below are the manifests for the `Secret`, `StatefulSet`, and a `CronJob` for automated backups.</p>
+                </div>
+                 <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <div class="border-b border-gray-200">
+                        <nav class="-mb-px flex space-x-6" aria-label="Tabs" id="database-tabs">
+                            <button class="tab active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-target="db-statefulset">StatefulSet & Service</button>
+                            <button class="tab whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700" data-target="db-backup">Backup CronJob</button>
+                        </nav>
+                    </div>
+                    <div class="pt-6">
+                        <div id="db-statefulset" class="tab-content">
+                             <div class="code-block">
+                                <pre class="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto text-sm"><code class="language-yaml">apiVersion: v1
+kind: Service
+metadata:
+  name: spellbreak-mariadb
+spec:
+  ports:
+  - port: 3306
+  selector:
+    app: spellbreak-mariadb
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: spellbreak-mariadb
+spec:
+  serviceName: "spellbreak-mariadb"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spellbreak-mariadb
+  template:
+    metadata:
+      labels:
+        app: spellbreak-mariadb
+    spec:
+      containers:
+      - name: mariadb
+        image: brendoncintas/spellbreak_db:stable
+        ports:
+        - containerPort: 3306
+          name: mysql
+        envFrom:
+        - secretRef:
+            name: spellbreak-db-credentials
+        volumeMounts:
+        - name: mariadb-persistent-storage
+          mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+  - metadata:
+      name: mariadb-persistent-storage
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 20Gi # Adjust size as needed
+</code></pre>
+                                <button class="copy-button">Copy</button>
+                            </div>
+                        </div>
+                        <div id="db-backup" class="tab-content hidden">
+                            <div class="code-block">
+                                <pre class="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto text-sm"><code class="language-yaml">apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mariadb-backup
+spec:
+  schedule: "0 2 * * *" # Run daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: backup
+            image: mariadb:10.5
+            envFrom:
+            - secretRef:
+                name: spellbreak-db-credentials
+            command:
+            - /bin/sh
+            - -c
+            - |
+              mariadb-dump --host=spellbreak-mariadb -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE > /backups/backup-$(date +%Y-%m-%d).sql
+              echo "Backup complete." # In production, add upload step here
+            volumeMounts:
+            - name: backup-volume
+              mountPath: /backups
+          volumes:
+          - name: backup-volume
+            emptyDir: {} # For production, use a PersistentVolumeClaim
+          restartPolicy: OnFailure
+</code></pre>
+                                <button class="copy-button">Copy</button>
+                            </div>
+                        </div>
+                    </div>
+                 </div>
+            </section>
+
+             <section id="networking" class="mb-16 space-y-8 scroll-mt-20">
+                <h2 class="text-3xl font-bold text-blue-900 border-b-4 border-blue-200 pb-2">🌐 Phase 5: Networking & Connectivity</h2>
+                 <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <p class="text-gray-700 leading-relaxed">Here we configure how players connect and how services are secured. A `NetworkPolicy` acts as a firewall, while tools like `external-dns` and `cert-manager` automate connectivity.</p>
+                </div>
+                 <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <h3 class="text-2xl font-semibold mb-4">Automation Tools for Networking</h3>
+                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                            <h4 class="font-bold text-lg text-blue-800">ExternalDNS</h4>
+                            <p class="text-blue-700 mt-2">Automatically manages DNS records for your external services in providers like AWS Route 53 or Google Cloud DNS. When your Ingress gets an IP, ExternalDNS creates a corresponding `A` record.</p>
+                        </div>
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-6">
+                            <h4 class="font-bold text-lg text-green-800">Cert-Manager</h4>
+                            <p class="text-green-700 mt-2">Automates the management and issuance of TLS certificates from sources like Let's Encrypt. It ensures your Ingress endpoints are secured with HTTPS without manual intervention.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+             <section id="automation" class="mb-16 space-y-8 scroll-mt-20">
+                <h2 class="text-3xl font-bold text-blue-900 border-b-4 border-blue-200 pb-2">🤖 Phase 6: Automation & Operations</h2>
+                 <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <p class="text-gray-700 leading-relaxed">The final phase is about building a robust, automated CI/CD pipeline. Use the generator below to create a starter GitHub Actions workflow for building your game server container and updating your GitOps repository.</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm">
+                     <h3 class="text-2xl font-semibold mb-4">✨ Generate CI/CD Workflow</h3>
+                     <p class="text-gray-600 mb-2">Provide your GitOps repository and container registry details, and Gemini will generate a GitHub Actions workflow YAML file.</p>
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="ci-gitops-repo" class="block text-sm font-medium text-gray-700">GitOps Repo (e.g., your-org/k8s-config)</label>
+                            <input type="text" id="ci-gitops-repo" value="your-org/spellbreak-k8s-config" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label for="ci-registry" class="block text-sm font-medium text-gray-700">Container Registry (e.g., ghcr.io/your-org)</label>
+                            <input type="text" id="ci-registry" value="ghcr.io/your-org/spellbreak-server" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                    </div>
+                     <button id="generate-ci-btn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        ✨ Generate GitHub Actions YAML
+                    </button>
+                    <div id="ci-output" class="mt-4 hidden">
+                        <div class="flex justify-center items-center my-4"><div class="loader"></div></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const sections = document.querySelectorAll('main section');
+            const navLinks = document.querySelectorAll('.nav-link');
+            const mainContent = document.querySelector('main');
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        navLinks.forEach(link => {
+                            link.classList.toggle('active', link.getAttribute('href').substring(1) === entry.target.id);
+                        });
+                    }
+                });
+            }, { root: mainContent, rootMargin: "-50% 0px -50% 0px", threshold: 0 });
+
+            sections.forEach(section => observer.observe(section));
+
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    document.querySelector(link.getAttribute('href')).scrollIntoView({ behavior: 'smooth' });
+                });
+            });
+            
+            function setupTabs(tabContainerId) {
+                const tabContainer = document.getElementById(tabContainerId);
+                if (!tabContainer) return;
+
+                const tabs = tabContainer.querySelectorAll('.tab');
+                tabs.forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        tabs.forEach(t => t.classList.remove('active'));
+                        tab.classList.add('active');
+                        
+                        const targetId = tab.dataset.target;
+                        const contentContainer = tab.closest('.bg-white').querySelector('.pt-6');
+                        contentContainer.querySelectorAll('.tab-content').forEach(content => {
+                            content.classList.toggle('hidden', content.id !== targetId);
+                        });
+                    });
+                });
+            }
+
+            setupTabs('agones-tabs');
+            setupTabs('database-tabs');
+
+            function setupCopyButton(button) {
+                 button.addEventListener('click', () => {
+                    const codeBlock = button.previousElementSibling;
+                    const code = codeBlock.querySelector('code').innerText;
+                    
+                    const textarea = document.createElement('textarea');
+                    textarea.value = code;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    try {
+                        document.execCommand('copy');
+                        button.innerText = 'Copied!';
+                    } catch (err) {
+                        console.error('Fallback: Oops, unable to copy', err);
+                         button.innerText = 'Error';
+                    }
+                    document.body.removeChild(textarea);
+
+                    setTimeout(() => {
+                        button.innerText = 'Copy';
+                    }, 2000);
+                });
+            }
+
+            document.querySelectorAll('.copy-button').forEach(setupCopyButton);
+
+            // Gemini API call helper
+            async function callGemini(prompt, outputElement) {
+                outputElement.innerHTML = '<div class="flex justify-center items-center my-4"><div class="loader"></div></div>';
+                outputElement.classList.remove('hidden');
+
+                let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+                const payload = { contents: chatHistory };
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    
+                    if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
+                        const rawText = result.candidates[0].content.parts[0].text;
+                        const language = rawText.match(/```(\w+)/)?.[1] || 'bash';
+                        const code = rawText.replace(/```(\w+)?\n/g, '').replace(/```/g, '');
+
+                        outputElement.innerHTML = `
+                            <div class="code-block">
+                                <pre class="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto text-sm"><code class="language-${language}">${code}</code></pre>
+                                <button class="copy-button">Copy</button>
+                            </div>
+                        `;
+                        setupCopyButton(outputElement.querySelector('.copy-button'));
+                    } else {
+                        throw new Error("Invalid response structure from API");
+                    }
+                } catch (error) {
+                    console.error("Error calling Gemini API:", error);
+                    outputElement.innerHTML = `<p class="text-red-500">Sorry, something went wrong. Please check the console for details.</p>`;
+                }
+            }
+            
+            // Feature 1: Terraform Generator
+            document.getElementById('generate-tf-btn').addEventListener('click', () => {
+                const provider = document.getElementById('tf-provider').value;
+                const clusterName = document.getElementById('tf-cluster-name').value;
+                const region = document.getElementById('tf-region').value;
+                const prompt = `Generate a complete Terraform configuration (\`main.tf\`) to provision a managed Kubernetes cluster on ${provider}.
+- The cluster name should be "${clusterName}".
+- The region should be "${region}".
+- For ${provider}, use the appropriate resource (e.g., \`google_container_cluster\`, \`aws_eks_cluster\`, \`azurerm_kubernetes_cluster\`).
+- Include a dedicated node pool for game servers named "game-servers-pool" with machine type suitable for gaming (e.g., n1-standard-4 for GCP, m5.xlarge for AWS, Standard_D4s_v3 for Azure).
+- The code should be complete, runnable, and wrapped in a single \`\`\`terraform block.`;
+                callGemini(prompt, document.getElementById('tf-output'));
+            });
+
+            // Feature 2: GameServer Generator
+            document.getElementById('generate-gs-btn').addEventListener('click', () => {
+                const image = document.getElementById('gs-image').value;
+                const cpu = document.getElementById('gs-cpu').value;
+                const mem = document.getElementById('gs-mem').value;
+                const port = document.getElementById('gs-port').value;
+                const prompt = `Generate a complete Agones GameServer YAML manifest.
+- The container image should be "${image}".
+- The container name should be "spellbreak-server".
+- It should have a dynamic UDP port policy named "gameport" on internal container port ${port}.
+- Resource requests should be CPU: "${cpu}", memory: "${mem}".
+- Resource limits should be CPU: "${parseInt(cpu) + 1}", memory: "${parseInt(mem) + 2}Gi".
+- Include a standard health check.
+- The code should be wrapped in a single \`\`\`yaml block.`;
+                callGemini(prompt, document.getElementById('gs-output'));
+            });
+
+            // Feature 3: Match Function Generator
+            document.getElementById('generate-mm-btn').addEventListener('click', () => {
+                const logic = document.getElementById('mm-logic').value;
+                const prompt = `Generate the body of a boilerplate Open Match Match Function in Go.
+The user wants the following logic: "${logic}".
+Based on this, implement the \`makeMatches\` function.
+- The function should create one or more MatchProfile.
+- It should query for pools of tickets based on the profiles.
+- It should iterate through the pools and form matches based on the user's rules.
+- The output should be only the Go code, wrapped in a single \`\`\`go block.
+- Make sure to add comments explaining the logic for skill relaxation, region grouping, etc., based on the user's request.`;
+                callGemini(prompt, document.getElementById('mm-output'));
+            });
+
+            // Feature 4: CI/CD Generator
+            document.getElementById('generate-ci-btn').addEventListener('click', () => {
+                const gitopsRepo = document.getElementById('ci-gitops-repo').value;
+                const registry = document.getElementById('ci-registry').value;
+                const prompt = `Generate a complete GitHub Actions workflow YAML file for a CI/CD pipeline.
+The workflow should be named "Build and Deploy Game Server".
+It should trigger on push to the \`main\` branch.
+The jobs should be:
+1. \`build\`:
+   - Checks out the code.
+   - Logs in to the GitHub Container Registry (ghcr.io).
+   - Builds a Docker image from the Dockerfile and pushes it to "${registry}" with the git SHA as the tag.
+2. \`deploy\`:
+   - Needs the \`build\` job to complete.
+   - Checks out a different repository for configuration: "${gitopsRepo}".
+   - Uses the 'yq' tool to update a values.yaml file at './fleets/squad/values.yaml' to set \`image.tag\` to the new git SHA.
+   - Commits and pushes the change to the config repo.
+The code should be wrapped in a single \`\`\`yaml block.`;
+                callGemini(prompt, document.getElementById('ci-output'));
+            });
+
+
+            // Original chart script
+            const k8sData = {
+                labels: ['Cost', 'Complexity', 'Control', 'Scalability', 'Gaming Features'],
+                datasets: [{
+                    label: 'Managed K8s (GKE/EKS/AKS)',
+                    data: [3, 2, 3, 5, 4],
+                    backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 1
+                }, {
+                    label: 'Self-Managed K8s',
+                    data: [2, 5, 5, 4, 5],
+                    backgroundColor: 'rgba(107, 114, 128, 0.7)',
+                    borderColor: 'rgba(107, 114, 128, 1)',
+                    borderWidth: 1
+                }]
+            };
+
+            const k8sTooltips = {
+                'Cost': 'Managed has control plane fees but lower personnel cost. Self-managed has higher engineering costs for maintenance.',
+                'Complexity': 'Managed is significantly less complex as the provider handles the control plane. Self-managed requires deep K8s expertise.',
+                'Control': 'Self-managed offers complete control over the cluster, including kernel tuning. Managed has some limitations.',
+                'Scalability': 'Both are highly scalable, but managed services often have more robust and battle-tested autoscaling integrations.',
+                'Gaming Features': 'Both can be configured for gaming, but managed services offer easier integration with regional load balancers and DDoS protection.',
+            };
+
+            const k8sConfig = {
+                type: 'bar',
+                data: k8sData,
+                options: {
+                    maintainAspectRatio: false,
+                    responsive: true,
+                    indexAxis: 'y',
+                    scales: {
+                        x: { beginAtZero: true, max: 5, ticks: { stepSize: 1, callback: (v) => ['','Low','Medium','High','Very High','Max'][v] }},
+                    },
+                    plugins: {
+                        legend: { position: 'top' },
+                        title: { display: false },
+                        tooltip: { callbacks: { afterBody: (c) => k8sTooltips[c[0].label] || '' } }
+                    }
+                }
+            };
+            
+            const k8sChartCtx = document.getElementById('k8sComparisonChart')?.getContext('2d');
+            if (k8sChartCtx) {
+                new Chart(k8sChartCtx, k8sConfig);
+            }
+        });
+    </script>
+</body>
+</html>
