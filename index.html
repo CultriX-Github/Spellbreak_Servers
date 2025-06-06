@@ -284,7 +284,7 @@ helm install my-open-match open-match/open-match --namespace open-match --create
              
             <section id="foundation" class="mb-16 space-y-8 scroll-mt-20">
                 <h2 class="text-3xl font-bold text-gray-800 dark:text-white border-b-2 border-ef-gold/50 dark:border-ef-gold pb-2">🏗️ Phase 1: Foundation (Advanced)</h2>
-                 <div class="bg-white dark:bg-ef-mid-purple/80 p-6 rounded-xl shadow-lg">
+                <div class="bg-white dark:bg-ef-mid-purple/80 p-6 rounded-xl shadow-lg mb-8">
                     <p class="text-gray-700 dark:text-gray-300 leading-relaxed">For a fully automated setup, use Infrastructure as Code (IaC) to provision the Kubernetes cluster itself. The tool below generates a starter Terraform configuration for this purpose.</p>
                 
                     <h3 class="text-2xl font-semibold my-4">✨ Generate Terraform Cluster Config</h3>
@@ -313,6 +313,17 @@ helm install my-open-match open-match/open-match --namespace open-match --create
                     <div id="tf-output" class="mt-4 hidden">
                         <div class="flex justify-center items-center my-4"><div class="loader"></div></div>
                     </div>
+                </div>
+
+                <div class="bg-white dark:bg-ef-mid-purple/80 p-6 rounded-xl shadow-lg">
+                    <h3 class="text-2xl font-semibold my-4">Local Development with Minikube</h3>
+                    <p class="text-gray-600 dark:text-gray-400 mb-4">For local development and testing, Minikube provides a single-node Kubernetes cluster on your personal machine. It's excellent for testing SDK integration and basic logic without incurring cloud costs. Note that Agones requires more resources than a default Minikube instance.</p>
+                    <p class="text-gray-600 dark:text-gray-400 mb-2">1. Start Minikube with sufficient resources:</p>
+                    <div class="code-block">
+                        <pre class="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto text-sm"><code class="language-bash">minikube start --memory=8192 --cpus=4 --driver=docker</code></pre>
+                        <button class="copy-button">Copy</button>
+                    </div>
+                    <p class="text-gray-600 dark:text-gray-400 mt-4 mb-2">2. Once started, you can install Agones and Open Match using the Helm commands from the Setup Wizard.</p>
                 </div>
             </section>
             
