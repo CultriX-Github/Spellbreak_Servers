@@ -1,0 +1,51 @@
+version: '3.9'
+volumes:
+  game-logs: {}
+
+networks:
+  spellbreak-network: {}
+
+services:
+  solo1:
+    image: brendoncintas/spellbreak_game_server:stable
+    hostname: solo1
+    networks:
+      spellbreak-network:
+        aliases:
+          - gameserver1
+          - solo1
+    ports:
+      - '7777:7777/udp'
+    volumes:
+      - game-logs:/spellbreak-server/BaseServer/g3/Saved/Logs/solo1:rw
+    environment:
+      GAME_PORT: "7777"
+      SERVER_NAME: "solo1"  # Conventionally matches the service name and hostname
+      CONTAINER_NAME: "solo1"
+      GAMEMODE: "Solo"  # Options: Solo, Duo, Squad, Capture
+      PATCH_PROD: "prod"  # or "vanilla"
+      IDLETIMER: "60"  # In seconds
+      SOLO1_GAME_PORT: "7777"
+      SOLO1_SERVER_NAME: "solo1"  # Conventionally matches the service name and hostname
+      SOLO1_CONTAINER_NAME: "solo1"
+      SOLO1_GAMEMODE: "Solo"  # Options: Solo, Duo, Squad, Capture
+      SOLO1_PATCH_PROD: "prod"  # or "vanilla"
+      SOLO1_IDLETIMER: "60"  # In seconds
+    deploy:
+      mode: replicated
+      replicas: 1
+      endpoint_mode: vip
+      update_config:
+        parallelism: 1
+        delay: 0s
+        order: stop-first
+      resources:
+        limits:
+          cpus: "4.00"
+          memory: 8192M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+      restart_policy:
+        condition: on-failure
+

@@ -1,0 +1,705 @@
+version: "3.9"
+
+#############################
+# NETWORKS
+#############################
+networks:
+  spellbreak-network:
+    driver: overlay
+    attachable: true
+
+  traefik-public:
+    external: true
+
+#############################
+# CONFIGS (top-level)
+#############################
+configs:
+  init-spellbreak.sql:
+    external: true
+    # (Because we already ran `docker config create init-spellbreak.sql ./init-spellbreak.sql`)
+
+#############################
+# VOLUMES
+#############################
+volumes:
+  mariadb-data:
+    driver: local
+
+  game-logs:
+    driver: local
+
+#############################
+# SECRETS
+#############################
+secrets:
+  mysql-root-password:
+    external: true
+  mysql-password:
+    external: true
+  elixir-db-password:
+    external: true
+  game-server-key:
+    external: true
+
+#############################
+# SERVICES
+#############################
+services:
+  ####################################################
+  # [1] Spellbreak MySQL Database (MariaDB)
+  ####################################################
+  mariadb:
+    image: brendoncintas/spellbreak_db:stable
+    hostname: mariadb
+    networks:
+      spellbreak-network:
+        aliases:
+          - mariadb
+          - spellbreak_db
+      traefik-public:
+        aliases:
+          - mariadb
+          - spellbreak_db
+    ports:
+      - target: 3306
+        published: 3306
+        protocol: tcp
+        mode: host
+      - target: 3306
+        published: 3306
+        protocol: udp
+        mode: host
+    volumes:
+      - mariadb-data:/var/lib/mysql
+
+    # We no longer mount mysql-root-password, only mysql-password
+    # secrets:
+    #   - mysql-password
+
+    # We no longer need mysql-root-password or mysql-password as secrets here;
+    # the init SQL uses a literal 'blackmaria' password. If you want to keep secrets,
+    # replace MARIADB_ALLOW_EMPTY_ROOT_PASSWORD with MARIADB_ROOT_PASSWORD_FILE and
+    # adjust the SQL accordingly.
+    configs:
+      - source: init-spellbreak.sql
+        target: /docker-entrypoint-initdb.d/init-spellbreak.sql
+
+    environment:
+      # 1) Allow root to start with an empty password on fresh volumes
+      MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: "yes"
+
+      # 2) We could also put MARIADB_DATABASE, MARIADB_USER, etc.,
+      #    but since our SQL explicitly creates them, we can omit them.
+      #
+      # If you prefer MariaDBΓÇÖs built-in creation instead of the SQL script, you could use:
+      MARIADB_DATABASE: spellbreak_server
+      MARIADB_USER: blackmaria
+      MARIADB_PASSWORD: blackmaria
+      # But with our init SQL in place, MariaDB sees that file and runs it, so no need.
+
+    deploy:
+      mode: replicated
+      replicas: 1
+      endpoint_mode: dnsrr
+      update_config:
+        parallelism: 1
+        delay: 0s
+        order: stop-first
+      resources:
+        limits:
+          cpus: "2.00"
+          memory: 2048M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.swarm.network=spellbreak-network
+
+  ####################################################
+  # [2] Spellbreak Matchmaking Service (Elixir)
+  ####################################################
+  elixir:
+    image: brendoncintas/spellbreak_matchmaking:stable
+    hostname: elixir
+    networks:
+      spellbreak-network:
+        aliases:
+          - elixir
+      traefik-public:
+        aliases:
+          - elixir
+    ports:
+      - target: 7777
+        published: 7777
+        protocol: udp
+        mode: host
+      - target: 7778
+        published: 7778
+        protocol: udp
+        mode: host
+      - target: 7779
+        published: 7779
+        protocol: udp
+        mode: host
+      - target: 7780
+        published: 7780
+        protocol: udp
+        mode: host
+      - target: 7781
+        published: 7781
+        protocol: udp
+        mode: host
+      - target: 7782
+        published: 7782
+        protocol: udp
+        mode: host
+      - target: 8877
+        published: 8877
+        protocol: udp
+        mode: host
+      - target: 8878
+        published: 8878
+        protocol: udp
+        mode: host
+      - target: 8879
+        published: 8879
+        protocol: udp
+        mode: host
+      - target: 8880
+        published: 8880
+        protocol: udp
+        mode: host
+      - target: 8881
+        published: 8881
+        protocol: udp
+        mode: host
+      - target: 8882
+        published: 8882
+        protocol: udp
+        mode: host     
+    volumes:
+      - game-logs:/app/log
+    environment:
+      DATABASE_URL: "mysql://blackmaria:blackmaria@mariadb:3306/spellbreak_server"
+      DB_HOST: mariadb
+      DB_USER: blackmaria
+      DB_PASSWORD: blackmaria
+      DB_PORT: 3306
+      DB_DATABASE: spellbreak_server
+      ELIXIR_GAME_SERVER_NAMES: "solo1,duo1,squad1,dominion1,dominion2,solo2"
+      ELIXIR_GAME_SERVER_HOSTS: "solo1,duo1,squad1,dominion1,dominion2,solo2"
+      ELIXIR_GAME_SERVER_PORTS: "7777,7778,7779,7780,7781,7782"
+      ELIXIR_GAME_MANAGER_PORTS: "3387,3388,3389,3390,3391,3392"
+      RECORDING_ENABLED: "false"
+      LOG_LEVEL: "info"
+    deploy:
+      mode: replicated
+      replicas: 1
+      endpoint_mode: dnsrr
+      update_config:
+        parallelism: 1
+        delay: 0s
+        order: stop-first
+      resources:
+        limits:
+          cpus: "2.00"
+          memory: 2048M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.swarm.network=traefik-public
+        - traefik.constraint-label=traefik-public
+
+        - traefik.http.routers.elixir.rule=Host(`elixir.endorisk.nl`)
+        - traefik.http.routers.elixir.service=elixir@swarm
+        - traefik.http.routers.elixir.entrypoints=https
+        - traefik.http.routers.elixir.tls=true
+        - traefik.http.routers.elixir.tls.certresolver=cloudflare
+        - traefik.http.services.elixir.loadbalancer.server.port=8080
+
+        - homepage.group=MatchMaking
+        - homepage.name=Elixir
+        - homepage.description=Elixir ΓÇô MatchMaking Service
+
+  ####################################################
+  # [3.1] Gameserver 1: solo1
+  ####################################################
+  solo1:
+    image: brendoncintas/spellbreak_game_server:stable
+    hostname: solo1
+    networks:
+      spellbreak-network:
+        aliases:
+          - gameserver1
+          - solo1
+      traefik-public:
+        aliases:
+          - gameserver1
+          - solo1
+    ports:
+      - target: 7777
+        published: 7767
+        protocol: udp
+        mode: host
+    secrets:
+      - game-server-key
+    volumes:
+      - game-logs:/spellbreak-server/BaseServer/g3/Saved/Logs/
+    environment:
+      GAME_PORT: "7777" 
+      ELIXIR_PORT: "8887"
+      ELIXIR_IP: "146.59.53.77"
+      SERVER_NAME: "solo1"  # Conventionally matches the service name and hostname 
+      CONTAINER_NAME: "solo1" 
+      GAMEMODE: "Solo"  # Options: Solo, Duo, Squad, Capture 
+      PATCH_PROD: "prod"  # or "vanilla" 
+      IDLETIMER: "60"  # In seconds 
+      SOLO1_GAME_PORT: "7777" 
+      SOLO1_ELIXIR_PORT: "8887" 
+      SOLO1_ELIXIR_IP: "146.59.53.77"
+      SOLO1_SERVER_NAME: "solo1"  # Conventionally matches the service name and hostname 
+      SOLO1_CONTAINER_NAME: "solo1" 
+      SOLO1_GAMEMODE: "Solo"  # Options: Solo, Duo, Squad, Capture 
+      SOLO1_PATCH_PROD: "prod"  # or "vanilla" 
+      SOLO1_IDLETIMER: "60"  # In seconds 
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.gameserver == true
+      endpoint_mode: dnsrr
+      update_config:
+        parallelism: 1
+        delay: 0s
+        order: stop-first
+      resources:
+        limits:
+          cpus: "4.00"
+          memory: 8192M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.swarm.network=traefik-public
+        - traefik.constraint-label=traefik-public
+
+        - traefik.udp.routers.solo1.service=solo1@swarm
+        - traefik.udp.routers.solo1.rule=HostSNI(`spellbreak-solo1.endorisk.nl`)
+        - traefik.udp.routers.solo1.entrypoints=udp
+        - traefik.udp.services.solo1.loadbalancer.server.port=7777
+
+        - homepage.group=Gameserver
+        - homepage.name=Gameserver-Solo1
+        - homepage.description=Gameserver 1 ΓÇô Solo1
+
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-retries: "5"
+        loki-batch-size: "400"
+
+  ####################################################
+  # [3.2] Gameserver 2: duo1
+  ####################################################
+  duo1:
+    image: brendoncintas/spellbreak_game_server:stable
+    hostname: duo1
+    networks:
+      spellbreak-network:
+        aliases:
+          - gameserver2
+          - duo1
+      traefik-public:
+        aliases:
+          - gameserver2
+          - duo1
+    ports:
+      - target: 7778
+        published: 7768
+        protocol: udp
+        mode: host
+    secrets:
+      - game-server-key
+    volumes:
+      - game-logs:/spellbreak-server/BaseServer/g3/Saved/Logs/
+    environment:
+      DUO1_GAME_PORT: 7778 
+      DUO1_ELIXIR_PORT: 8878
+      DUO1_SERVER_NAME: "duo1"  # Conventionally matches the service name and hostname 
+      DUO1_CONTAINER_NAME: "duo1" 
+      DUO1_GAMEMODE: "Duo"  # Options: Solo, Duo, Squad, Capture 
+      DUO1_PATCH_PROD: "vanilla"  # or "vanilla" 
+      SOLO1_IDLETIMER: "60"  # In seconds 
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.gameserver == true
+      endpoint_mode: dnsrr
+      update_config:
+        parallelism: 1
+        delay: 0s
+        order: stop-first
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 2048M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.swarm.network=traefik-public
+        - traefik.constraint-label=traefik-public
+
+        - traefik.udp.routers.duo1.service=duo1@swarm
+        - traefik.udp.routers.duo1.rule=HostSNI(`spellbreak-duo1.endorisk.nl`)
+        - traefik.udp.routers.duo1.entrypoints=udp
+        - traefik.udp.services.duo1.loadbalancer.server.port=7778
+
+        - homepage.group=Gameserver
+        - homepage.name=Gameserver-Duo1
+        - homepage.description=Gameserver 2 ΓÇô Duo1
+
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-retries: "5"
+        loki-batch-size: "400"
+
+  ####################################################
+  # [3.3] Gameserver 3: squad1
+  ####################################################
+  squad1:
+    image: brendoncintas/spellbreak_game_server:stable
+    hostname: squad1
+    networks:
+      spellbreak-network:
+        aliases:
+          - gameserver3
+          - squad1
+      traefik-public:
+        aliases:
+          - gameserver3
+          - squad1
+    ports:
+      - target: 7779
+        published: 7769
+        protocol: udp
+        mode: host
+    secrets:
+      - game-server-key
+    volumes:
+      - game-logs:/spellbreak-server/BaseServer/g3/Saved/Logs/
+    environment:
+      GAME_PORT: 7779
+      ELIXIR_PORT: 8879
+      SERVER_NAME: "squad1"
+      CONTAINER_NAME: "squad1"
+      GAMEMODE: "Squad"
+      PATCH_PROD: "vanilla"
+      IDLETIMER: "60"
+      SQUAD1_GAME_PORT: 7779
+      SQUAD1_ELIXIR_PORT: 8879
+      SQUAD1_SERVER_NAME: "squad1"
+      SQUAD1_CONTAINER_NAME: "squad1"
+      SQUAD1_GAMEMODE: "Squad"
+      SQUAD1_PATCH_PROD: "vanilla"
+      SQUAD1_IDLETIMER: "60"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.gameserver == true
+      endpoint_mode: dnsrr
+      update_config:
+        parallelism: 1
+        delay: 0s
+        order: stop-first
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 2048M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.swarm.network=traefik-public
+        - traefik.constraint-label=traefik-public
+
+        - traefik.udp.routers.squad1.service=squad1@swarm
+        - traefik.udp.routers.squad1.rule=HostSNI(`spellbreak-squad1.endorisk.nl`)
+        - traefik.udp.routers.squad1.entrypoints=udp
+        - traefik.udp.services.squad1.loadbalancer.server.port=7779
+
+        - homepage.group=Gameserver
+        - homepage.name=Gameserver-Squad1
+        - homepage.description=Gameserver 3 ΓÇô Squad1
+
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-retries: "5"
+        loki-batch-size: "400"
+
+  ####################################################
+  # [3.4] Gameserver 4: dominion1
+  ####################################################
+  dominion1:
+    image: brendoncintas/spellbreak_game_server:stable
+    hostname: dominion1
+    networks:
+      spellbreak-network:
+        aliases:
+          - gameserver4
+          - dominion1
+      traefik-public:
+        aliases:
+          - gameserver4
+          - dominion1
+    ports:
+      - target: 7780
+        published: 7770
+        protocol: udp
+        mode: host
+    secrets:
+      - game-server-key
+    volumes:
+      - game-logs:/spellbreak-server/BaseServer/g3/Saved/Logs/
+    environment:
+      GAME_PORT: 7780
+      ELIXIR_PORT: 8880
+      SERVER_NAME: "dominion1"
+      CONTAINER_NAME: "dominion1"
+      GAMEMODE: "Capture"
+      PATCH_PROD: "vanilla"
+      IDLETIMER: "60"
+      DOMINION1_GAME_PORT: 7780
+      DOMINION1_ELIXIR_PORT: 8880
+      DOMINION1_SERVER_NAME: "dominion1"
+      DOMINION1_CONTAINER_NAME: "dominion1"
+      DOMINION1_GAMEMODE: "Capture"
+      DOMINION1_PATCH_PROD: "vanilla"
+      DOMINION1_IDLETIMER: "60"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.gameserver == true
+      endpoint_mode: dnsrr
+      update_config:
+        parallelism: 1
+        delay: 0s
+        order: stop-first
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 2048M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.swarm.network=traefik-public
+        - traefik.constraint-label=traefik-public
+
+        - traefik.udp.routers.dominion1.service=dominion1@swarm
+        - traefik.udp.routers.dominion1.rule=HostSNI(`spellbreak-dominion1.endorisk.nl`)
+        - traefik.udp.routers.dominion1.entrypoints=udp
+        - traefik.udp.services.dominion1.loadbalancer.server.port=7780
+
+        - homepage.group=Gameserver
+        - homepage.name=Gameserver-Dominion1
+        - homepage.description=Gameserver 4 ΓÇô Dominion1
+
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-retries: "5"
+        loki-batch-size: "400"
+
+  ####################################################
+  # [3.5] Gameserver 5: dominion2
+  ####################################################
+  dominion2:
+    image: brendoncintas/spellbreak_game_server:stable
+    hostname: dominion2
+    networks:
+      spellbreak-network:
+        aliases:
+          - gameserver5
+          - dominion2
+      traefik-public:
+        aliases:
+          - gameserver5
+          - dominion2
+    ports:
+      - target: 7781
+        published: 7771
+        protocol: udp
+        mode: host
+    secrets:
+      - game-server-key
+    volumes:
+      - game-logs:/spellbreak-server/BaseServer/g3/Saved/Logs/
+    environment:
+      GAME_PORT: 7781
+      ELIXIR_PORT: 8881
+      SERVER_NAME: "dominion2"
+      CONTAINER_NAME: "dominion2"
+      GAMEMODE: "Capture"
+      PATCH_PROD: "vanilla"
+      IDLETIMER: "60"
+      DOMINION2_GAME_PORT: 7781
+      DOMINION2_ELIXIR_PORT: 8881
+      DOMINION2_SERVER_NAME: "dominion2"
+      DOMINION2_CONTAINER_NAME: "dominion2"
+      DOMINION2_GAMEMODE: "Capture"
+      DOMINION2_PATCH_PROD: "vanilla"
+      DOMINION2_IDLETIMER: "60"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.gameserver == true
+      endpoint_mode: dnsrr
+      update_config:
+        parallelism: 1
+        delay: 0s
+        order: stop-first
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 2048M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.swarm.network=traefik-public
+        - traefik.constraint-label=traefik-public
+
+        - traefik.udp.routers.dominion2.service=dominion2@swarm
+        - traefik.udp.routers.dominion2.rule=HostSNI(`spellbreak-dominion2.endorisk.nl`)
+        - traefik.udp.routers.dominion2.entrypoints=udp
+        - traefik.udp.services.dominion2.loadbalancer.server.port=7781
+
+        - homepage.group=Gameserver
+        - homepage.name=Gameserver-Dominion2
+        - homepage.description=Gameserver 5 ΓÇô Dominion2
+
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-retries: "5"
+        loki-batch-size: "400"
+
+  ####################################################
+  # [3.6] Gameserver 6: solo2
+  ####################################################
+  solo2:
+    image: brendoncintas/spellbreak_game_server:stable
+    hostname: solo2
+    networks:
+      spellbreak-network:
+        aliases:
+          - gameserver6
+          - solo2
+      traefik-public:
+        aliases:
+          - gameserver6
+          - solo2
+    ports:
+      - target: 7782
+        published: 7772
+        protocol: udp
+        mode: host
+    secrets:
+      - game-server-key
+    volumes:
+      - game-logs:/spellbreak-server/BaseServer/g3/Saved/Logs/
+    environment:
+      GAME_PORT: 7782
+      ELIXIR_PORT: 8882
+      SERVER_NAME: "solo2"
+      CONTAINER_NAME: "solo2"
+      GAMEMODE: "Solo"
+      PATCH_PROD: "vanilla"
+      IDLETIMER: "60"
+      SOLO2_GAME_PORT: 7782
+      SOLO2_ELIXIR_PORT: 8882
+      SOLO2_SERVER_NAME: "solo2"
+      SOLO2_CONTAINER_NAME: "solo2"
+      SOLO2_GAMEMODE: "Solo"
+      SOLO2_PATCH_PROD: "vanilla"
+      SOLO2_IDLETIMER: "60"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.gameserver == true
+      endpoint_mode: dnsrr
+      update_config:
+        parallelism: 1
+        delay: 0s
+        order: stop-first
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 2048M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.swarm.network=traefik-public
+        - traefik.constraint-label=traefik-public
+
+        - traefik.udp.routers.solo2.service=solo2@swarm
+        - traefik.udp.routers.solo2.rule=HostSNI(`spellbreak-solo2.endorisk.nl`)
+        - traefik.udp.routers.solo2.entrypoints=udp
+        - traefik.udp.services.solo2.loadbalancer.server.port=7782
+
+        - homepage.group=Gameserver
+        - homepage.name=Gameserver-Solo2
+        - homepage.description=Gameserver 6 ΓÇô Solo1
+
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-retries: "5"
+        loki-batch-size: "400"

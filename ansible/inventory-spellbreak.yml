@@ -1,0 +1,11 @@
+tgameservers:
+  hosts:
+    solo-1:
+      ansible_name: solo-1
+      ansible_host: 139.162.160.195
+      ansible_port: 22
+  vars:
+      ansible_ssh_private_key_file: ~/.ssh/id_ansible
+      ansible_become: true
+      ansible_user: root
+      ansible_format: linux/amd64

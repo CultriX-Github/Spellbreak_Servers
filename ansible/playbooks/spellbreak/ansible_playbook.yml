@@ -1,0 +1,509 @@
+---
+- name: Deploy Simplified Spellbreak Stack
+  hosts: solo-1
+  become: true
+  vars:
+    # General settings
+    target_user: "{{ ansible_user }}"
+    docker_registry_url: ""
+    docker_registry_username: ""
+    docker_registry_password: ""
+
+    # Files and directories
+    stack_file: "/opt/spellbreak/docker_stack_simplified.yml"
+    src_file: "/etc/ansible/docker_stack_simplified.yml"
+    docker_data_dir: "/mnt/docker"
+    
+    # Package lists
+    essential_apt_packages:
+      - aria2
+      - curl
+      - git
+      - htop
+      - ifstat
+      - btop
+      - iotop
+      - lm-sensors
+      - neofetch
+      - net-tools
+      - openssh-client
+      - openssh-server
+      - p7zip-full
+      - parallel
+      - pv
+      - python3
+      - python3-pip
+      - python3-venv
+      - pipx
+      - rsync
+      - screen
+      - snapd
+      - unzip
+      - axel
+      - tmux
+      - tuned
+      - flatpak
+      - build-essential
+      - python3-setuptools
+      - python3-wheel
+
+    additional_apt_packages:
+      - bat
+      - bmon
+      - iperf3
+      - logtool
+      - mbuffer
+      - moreutils
+      - multitail
+      - multitime
+      - nala
+      - nmon
+      - pigz
+      - vnstat
+      - vnstati
+      - progress
+      - pwgen
+      - rclone
+      - slurm
+      - speedometer
+      - speedtest-cli
+      - toilet
+      - tty-clock
+      - xclip
+
+    snap_packages:
+      - dnslookup
+      - ttyplot
+      - serve
+      - ffsend
+      - tqdm
+      - shfmt
+
+    essential_python_packages:
+      - jsondiff
+
+    essential_pipx_packages:
+     - shell-gpt
+
+    docker_packages:
+      - docker.io
+      - docker-compose
+
+  tasks:
+    # Deployment Overview
+    - name: "🚀 SPELLBREAK DEPLOYMENT OVERVIEW"
+      ansible.builtin.debug:
+        msg:
+          - "=============================================="
+          - "       SPELLBREAK STACK DEPLOYMENT"
+          - "=============================================="
+          - "Step 1/7: ✅ Pre-flight checks"
+          - "Step 2/7: ⚙️  System configuration"
+          - "Step 3/7: 📦 Package management"
+          - "Step 4/7: 🔧 Additional tools installation"
+          - "Step 5/7: 🔐 System services configuration"
+          - "Step 6/7: 🐳 Docker configuration"
+          - "Step 7/7: 🚢 Stack deployment"
+          - "=============================================="
+      tags: ['overview']
+
+    # Step 1/7: Pre-flight checks
+    - name: "📋 STEP 1/7: Starting Pre-flight Checks"
+      ansible.builtin.debug:
+        msg: 
+          - "🔍 Performing pre-flight checks..."
+          - "   • Verifying root/sudo privileges"
+          - "   • Checking source stack file exists"
+      tags: ['preflight']
+
+    - name: "1.1 - Check if running as root or with sudo"
+      ansible.builtin.fail:
+        msg: "This playbook requires root privileges"
+      when: ansible_user_uid != 0 and ansible_become != true
+      tags: ['preflight']
+
+    - name: "1.2 - Verify source stack file exists"
+      ansible.builtin.stat:
+        path: "{{ src_file }}"
+      register: src_stack_file
+      delegate_to: localhost
+      tags: ['preflight']
+
+    - name: "1.3 - Fail if source stack file doesn't exist"
+      ansible.builtin.fail:
+        msg: "Source stack file {{ src_file }} not found"
+      when: not src_stack_file.stat.exists
+      tags: ['preflight']
+
+    - name: "✅ STEP 1/7 COMPLETED: Pre-flight checks passed"
+      ansible.builtin.debug:
+        msg: "Pre-flight checks completed successfully!"
+      tags: ['preflight']
+
+    # Step 2/7: System configuration
+    - name: "⚙️ STEP 2/7: Starting System Configuration"
+      ansible.builtin.debug:
+        msg: 
+          - "🖥️  Configuring system settings..."
+          - "   • Setting hostname"
+          - "   • Configuring timezone"
+          - "   • Setting up DNS resolution"
+      tags: ['system']
+
+    - name: "2.1 - Configure system hostname"
+      block:
+        - name: "2.1a - Set the hostname"
+          ansible.builtin.hostname:
+            name: "{{ ansible_host }}"
+
+        - name: "2.1b - Ensure /etc/hostname has correct hostname"
+          ansible.builtin.lineinfile:
+            path: /etc/hostname
+            line: "{{ ansible_host }}"
+            create: yes
+            backup: yes
+      tags: ['system']
+
+    - name: "2.2 - Set timezone to UTC"
+      ansible.builtin.timezone:
+        name: UTC
+      tags: ['system']
+
+    - name: "2.3 - Configure DNS resolution"
+      ansible.builtin.blockinfile:
+        path: /etc/resolv.conf
+        block: |
+          nameserver 1.1.1.1
+          nameserver 8.8.8.8
+        create: yes
+        backup: yes
+      tags: ['system']
+
+    - name: "✅ STEP 2/7 COMPLETED: System configuration finished"
+      ansible.builtin.debug:
+        msg: "System configuration completed successfully!"
+      tags: ['system']
+
+    # Step 3/7: Package management
+    - name: "📦 STEP 3/7: Starting Package Management"
+      ansible.builtin.debug:
+        msg: 
+          - "📥 Installing required packages..."
+          - "   • Updating package cache"
+          - "   • Installing Docker packages"
+          - "   • Installing essential packages"
+          - "   • Installing additional packages"
+          - "   • Installing Snap packages"
+          - "   • Installing Python packages"
+      tags: ['packages']
+
+    - name: "3.1 - Update package cache"
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+      tags: ['packages']
+
+    - name: "3.2 - Install Docker packages"
+      ansible.builtin.apt:
+        name: "{{ docker_packages }}"
+        state: present
+        update_cache: yes
+      tags: ['packages', 'docker']
+
+    - name: "3.3 - Install essential packages ({{ essential_apt_packages | length }} packages)"
+      ansible.builtin.apt:
+        name: "{{ essential_apt_packages }}"
+        state: present
+      tags: ['packages']
+
+    - name: "3.4 - Install additional packages ({{ additional_apt_packages | length }} packages)"
+      ansible.builtin.apt:
+        name: "{{ additional_apt_packages }}"
+        state: present
+      tags: ['packages']
+
+    - name: "3.5 - Install Snap packages ({{ snap_packages | length }} packages)"
+      community.general.snap:
+        name: "{{ item }}"
+        classic: yes
+      loop: "{{ snap_packages }}"
+      ignore_errors: yes
+      tags: ['packages', 'snap']
+
+    - name: "3.6 - Install Python packages via pip ({{ essential_python_packages | length }} packages)"
+      ansible.builtin.command:
+        cmd: "pip install {{ item }} --break-system-packages"
+      loop: "{{ essential_python_packages }}"
+      become_user: "{{ target_user }}"
+      register: pip_result
+      changed_when: "'installed package' in pip_result.stdout"
+      failed_when: pip_result.rc != 0 and 'already installed' not in pip_result.stderr
+      tags: ['packages', 'python']
+
+    - name: "3.7 - Install Python packages via pipx ({{ essential_pipx_packages | length }} packages)"
+      ansible.builtin.command:
+        cmd: "pipx install {{ item }}"
+      loop: "{{ essential_pipx_packages }}"
+      become_user: "{{ target_user }}"
+      register: pipx_result
+      changed_when: "'installed package' in pipx_result.stdout"
+      failed_when: pipx_result.rc != 0 and 'already installed' not in pipx_result.stderr
+      tags: ['packages', 'python']
+
+    - name: "3.8 - Pipx Ensurepath"
+      ansible.builtin.command:
+        cmd: "pipx ensurepath"
+
+    - name: "✅ STEP 3/7 COMPLETED: Package management finished"
+      ansible.builtin.debug:
+        msg: "All packages installed successfully!"
+      tags: ['packages']
+
+    # Step 4/7: Additional tools installation
+    - name: "🔧 STEP 4/7: Starting Additional Tools Installation"
+      ansible.builtin.debug:
+        msg: 
+          - "🛠️  Installing additional tools..."
+          - "   • Installing Croc"
+#          - "   • Installing Fastfetch"
+      tags: ['tools']
+
+    - name: "4.1 - Install additional tools"
+      block:
+        - name: "4.1a - Check if croc is installed"
+          ansible.builtin.command: which croc
+          register: croc_check
+          failed_when: false
+          changed_when: false
+
+        - name: "4.1b - Install Croc"
+          ansible.builtin.shell: curl -sSL https://getcroc.schollz.com | bash
+          when: croc_check.rc != 0
+      tags: ['tools']
+
+    - name: "✅ STEP 4/7 COMPLETED: Additional tools installation finished"
+      ansible.builtin.debug:
+        msg: "Additional tools installed successfully!"
+      tags: ['tools']
+
+    # Step 5/7: System services configuration
+    - name: "🔐 STEP 5/7: Starting System Services Configuration"
+      ansible.builtin.debug:
+        msg: 
+          - "🔧 Configuring system services..."
+          - "   • SSH security configuration"
+          - "   • Tuned performance profile"
+      tags: ['services']
+
+    - name: "5.1 - Configure and start services"
+      block:
+        - name: "5.1a - Configure SSH for security"
+          ansible.builtin.blockinfile:
+            path: /etc/ssh/sshd_config
+            block: |
+              PubkeyAuthentication yes
+              PasswordAuthentication no
+              PermitRootLogin prohibit-password
+            backup: yes
+          notify: restart ssh
+
+        - name: "5.1b - Configure tuned for performance"
+          block:
+            - name: "5.1b.1 - Check current tuned profile"
+              ansible.builtin.command: tuned-adm active
+              register: current_profile
+              changed_when: false
+
+            - name: "5.1b.2 - Set tuned profile to throughput-performance"
+              ansible.builtin.command: tuned-adm profile throughput-performance
+              when: "'throughput-performance' not in current_profile.stdout"
+
+            - name: "5.1b.3 - Start and enable tuned service"
+              ansible.builtin.systemd:
+                name: tuned
+                state: started
+                enabled: yes
+      tags: ['services']
+
+    - name: "✅ STEP 5/7 COMPLETED: System services configuration finished"
+      ansible.builtin.debug:
+        msg: "System services configured successfully!"
+      tags: ['services']
+
+    # Step 6/7: Docker configuration
+    - name: "🐳 STEP 6/7: Starting Docker Configuration"
+      ansible.builtin.debug:
+        msg: 
+          - "🐋 Configuring Docker environment..."
+          - "   • Starting Docker service"
+          - "   • Adding user to Docker group"
+          - "   • Creating directories"
+          - "   • Verifying Docker functionality"
+          - "   • Optional registry login"
+      tags: ['docker']
+
+    - name: "6.1 - Configure Docker"
+      block:
+        - name: "6.1a - Start and enable Docker service"
+          ansible.builtin.systemd:
+            name: docker
+            state: started
+            enabled: yes
+
+        - name: "6.1b - Add user to Docker group"
+          ansible.builtin.user:
+            name: "{{ target_user }}"
+            groups: docker
+            append: yes
+          notify: reset ssh connection
+
+        - name: "6.1c - Create Docker data directory"
+          ansible.builtin.file:
+            path: "{{ docker_data_dir }}"
+            state: directory
+            owner: "{{ target_user }}"
+            group: "{{ target_user }}"
+            mode: '0755'
+
+        - name: "6.1d - Create spellbreak config directory"
+          ansible.builtin.file:
+            path: "{{ stack_file | dirname }}"
+            state: directory
+            owner: "{{ target_user }}"
+            group: "{{ target_user }}"
+            mode: '0755'
+
+        - name: "6.1e - Wait for Docker daemon to be ready (this takes 20 seconds)"
+          ansible.builtin.wait_for:
+            port: 2376
+            host: 127.0.0.1
+            timeout: 2
+          ignore_errors: yes
+
+        - name: "6.1f - Verify Docker is working"
+          ansible.builtin.command: docker info
+          register: docker_info
+          retries: 3
+          delay: 5
+          until: docker_info.rc == 0
+      tags: ['docker']
+
+    - name: "6.2 - Login to Docker registry (optional)"
+      community.docker.docker_login:
+        registry_url: "{{ docker_registry_url }}"
+        username: "{{ docker_registry_username }}"
+        password: "{{ docker_registry_password }}"
+      when: 
+        - docker_registry_url | length > 0
+        - docker_registry_username | length > 0
+        - docker_registry_password | length > 0
+      tags: ['docker']
+
+    - name: "✅ STEP 6/7 COMPLETED: Docker configuration finished"
+      ansible.builtin.debug:
+        msg: "Docker environment configured successfully!"
+      tags: ['docker']
+
+    # Step 7/7: Stack deployment
+    - name: "🚢 STEP 7/7: Starting Stack Deployment"
+      ansible.builtin.debug:
+        msg: 
+          - "🚀 Deploying Spellbreak stack..."
+          - "   • Copying stack file"
+          - "   • Initializing Docker Swarm"
+          - "   • Validating configuration"
+          - "   • Deploying stack"
+          - "   • Verifying deployment"
+      tags: ['deploy']
+
+    - name: "7.1 - Deploy Spellbreak stack"
+      block:
+        - name: "7.1a - Copy Docker Stack file to host"
+          ansible.builtin.copy:
+            src: "{{ src_file }}"
+            dest: "{{ stack_file }}"
+            owner: "{{ target_user }}"
+            group: "{{ target_user }}"
+            mode: '0644'
+            backup: yes
+
+        - name: "7.1b - Initialize Docker Swarm"
+          community.docker.docker_swarm:
+            state: present
+          register: swarm_result
+
+        - name: "7.1c - Display swarm initialization result"
+          ansible.builtin.debug:
+            msg: "Swarm state: {{ swarm_result.swarm_facts.LocalNodeState | default('unknown') }}"
+
+        - name: "7.1d - Validate stack file syntax"
+          ansible.builtin.command:
+            cmd: "docker-compose -f {{ stack_file }} config"
+          register: stack_validation
+          changed_when: false
+
+        - name: "7.1e - Deploy the Spellbreak stack"
+          community.docker.docker_stack:
+            name: spellbreak_simple
+            state: present
+            compose:
+              - "{{ stack_file }}"
+          register: stack_deploy_result
+
+        - name: "7.1f - Display stack deployment result"
+          ansible.builtin.debug:
+            msg: "Stack deployment completed. Result: {{ stack_deploy_result }}"
+
+        - name: "7.1g - Wait for stack services to be ready"
+          ansible.builtin.pause:
+            seconds: 15
+            prompt: "Waiting for services to initialize..."
+
+        - name: "7.1h - Check stack list"
+          ansible.builtin.command: docker stack ls
+          register: stack_list
+          changed_when: false
+
+        - name: "7.1i - Display stack list"
+          ansible.builtin.debug:
+            msg: "Available stacks: {{ stack_list.stdout_lines }}"
+          when: stack_list is succeeded
+
+        - name: "7.1j - Verify stack is running"
+          ansible.builtin.command: docker stack services spellbreak_simple
+          register: stack_services
+          changed_when: false
+          failed_when: false
+
+        - name: "7.1k - Show running services"
+          ansible.builtin.debug:
+            msg: "{{ stack_services.stdout_lines }}"
+          when: stack_services is succeeded and stack_services.stdout_lines is defined
+
+    - name: "🎉 DEPLOYMENT COMPLETE!"
+      ansible.builtin.debug:
+        msg:
+          - "=============================================="
+          - "    ✅ SPELLBREAK DEPLOYMENT SUCCESSFUL!"
+          - "=============================================="
+          - "All 7 steps completed successfully:"
+          - "✅ Step 1/7: Pre-flight checks"
+          - "✅ Step 2/7: System configuration"
+          - "✅ Step 3/7: Package management"
+          - "✅ Step 4/7: Additional tools installation"
+          - "✅ Step 5/7: System services configuration"
+          - "✅ Step 6/7: Docker configuration"
+          - "✅ Step 7/7: Stack deployment"
+          - "=============================================="
+          - "🚀 Your Spellbreak stack is now running!"
+      tags: ['deploy']
+
+  handlers:
+    - name: restart ssh
+      ansible.builtin.systemd:
+        name: ssh
+        state: restarted
+
+    - name: reset ssh connection
+      ansible.builtin.meta: reset_connection
